@@ -1,0 +1,27 @@
+STADIO 1 — BUNDLE DI GROUND TRUTH
+
+Geometria
+  Sorgente : SSM biatriale KIT-IBT (Nagel et al. 2021), forma media
+  Estratto : superficie endocardica LA, aperta agli orifizi
+  Vertici  : 21811   Triangoli: 43270   Unita': mm (LA_um.* in um)
+  Maschera LA nello spazio indici SSM: la_vertex_mask.npy (39869 -> 21811)
+
+Fibre (ground truth imposta, generata UNA VOLTA)
+  Tool   : AugmentA (KIT-IBT), LDRBM - vedi run_augmenta.sh, apex in *_apexes.csv
+  Campi  : fiber (f), sheet (t), per elemento, su indicizzazione SSM
+  NOTA   : da qui in poi le fibre si TRASPORTANO, mai si rigenerano.
+
+Anisotropia (ground truth imposta)
+  CV_L = 1050 mm/s   CV_T = CV_N = 525 mm/s   rapporto = 2.0
+  Verifica differenziale su LAT_LSPV:
+    parallelo alla fibra   : 1035.1 mm/s  (atteso 1050)
+    perpendicolare         :  531.6 mm/s  (atteso  525)
+    rapporto misurato      : 1.95
+
+Mappe LAT
+  Simulatore : openCARP v19.0, modalita' eikonale pura (dream.solve 0, FIM)
+  Parametri  : dream.fim.tol 0.001, max_iter 1e7 - comando in run_eik.sh
+  Siti (6)   : LSPV, RSPV, LAA, body_A, body_B, body_C - coordinate in pacing_sites.csv
+  Output     : LAT_all.npz (per sito) e LA_with_all_LAT.vtk (campi sul riferimento)
+
+Tag regioni: 1 corpo, 2 MV, 3 LIPV, 4 LSPV, 5 RIPV, 6 RSPV, 7 LAA

@@ -1,0 +1,9 @@
+# Mappatura elemTag -> regione anatomica (LA endocardio, AugmentA su forma media SSM)
+# Identificata visivamente in ParaView (hover su elemTag categorico)
+1  LA_body        corpo atrio sinistro
+2  MV             anello mitralico
+3  LIPV           vena polmonare sinistra inferiore
+4  LSPV           vena polmonare sinistra superiore
+5  RIPV           vena polmonare destra inferiore
+6  RSPV           vena polmonare destra superiore
+7  LAA            auricola sinistra

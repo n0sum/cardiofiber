@@ -1,0 +1,50 @@
+# ======================================================================
+#  Tutto cio' che e' rigenerabile da recipe/ , piu' cio' che non si
+#  puo' redistribuire. Se un file serve davvero in git: git add -f
+# ======================================================================
+
+# dati e risultati
+/data/
+/output/
+/papers/
+
+# build
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.obj
+
+# python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# Claude Code: la configurazione locale non e' ricetta
+.claude/settings.local.json
+
+# ----------------------------------------------------------------------
+# Rete di sicurezza: formati di dato pesante, dovunque si trovino.
+# Impedisce che un dato finito fuori da data/ per sbaglio entri in git.
+# ----------------------------------------------------------------------
+*.h5
+*.igb
+*.vtk
+*.vtu
+*.vtp
+*.ply
+*.stl
+*.mesh
+*.npz
+*.pts
+*.elem
+*.lon
+*.vtx
+*.log

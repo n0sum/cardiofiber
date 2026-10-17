@@ -1,0 +1,51 @@
+ra:
+  thresholds:
+    tao_icv: 0.95
+    tao_scv: 0.1
+    alpha_RAA: 0.3
+    ivc_phie_r_offset: 0.2
+  bundles:
+    w_ct: 4.62
+    w_pm: 0.66
+    w_bb: 2.0
+    r_sn: 2.5
+    tv_ring_radius: 4.0
+    ct_band_query_radius: 7.0
+    cs_ring_radius: 4.0
+    bb_sphere_factor: 1.02
+  pm:
+    pm_num: 15
+    pm_skip_first: 2
+    pm_skip_last: 2
+    pm_trim_fraction: 0.03
+    pm_downsample_fraction: 0.065
+    pm1_downsample_fraction: 0.1
+    pm_min_path_length: 3
+    band_width_fraction: 0.15
+  bb:
+    bb_downsample_fraction: 0.1
+    bb_center_fraction: 0.45
+    bb_step: 20
+la:
+  thresholds:
+    lpv_lb: 0.0
+    lpv_ub: 0.4
+    rpv_lb: 0.6
+    rpv_ub: 1.0
+    laa_bb_offset_low: 0.03
+    laa_bb_offset_high: 0.01
+    laa_shape_thr: 0.95
+    epi_endo_thr: 0.5
+  bundles:
+    w_bb: 2.0
+    mv_ring_radius: 4.0
+    bilayer_normal_offset: 0.1
+bridges:
+  bridge_radius: 1.65
+  mpb_position: 0.6
+  upb_position: 0.4
+  intersection_radius: 0.7
+  cs_tv_offset: 0.1
+  bilayer_normal_offset: 0.1
+  remesh_target_length: 0.4
+  bilayer_max_dist: 0.12
