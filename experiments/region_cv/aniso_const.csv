@@ -1,5 +1,6 @@
 # CV per regione, in mm/ms (openCARP usa mm/s: 1050 -> 1.05, 525 -> 0.525)
-# sorgente: stage1_bundle/meta/ground_truth.txt, gregion[].dream.vel_l / vel_t
+# sorgente: simulator/stage1/ground_truth.txt; in openCARP gregion[0].dream.vel_l / vel_t
+# (simulator/stage1/opencarp/parameters_LSPV.par)
 # tag: 1=corpo LA  2=anello mitralico  3=LIPV  4=LSPV  5=RIPV  6=RSPV  7=LAA
 region_tag,CV_L,CV_T
 1,1.05,0.525
