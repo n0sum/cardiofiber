@@ -52,12 +52,10 @@ struct RegionCV {
     float CV_L, CV_T;               // mm/ms
 };
 
-// Errori di una faccia (stimato vs vero). Se valid == false (faccia non stimabile) i campi sono NaN.
+// Errori di una faccia (stimato vs vero). Se valid == false (faccia non stimabile) err_angle e' NaN.
+// Gli errori relativi sulle CV si calcolano in analisi.py da CV_*_est e CV_*_true.
 struct FaceError {
     float err_angle = 0.0f;         // gradi, modulo pi: min(|d|, 180 - |d|)
-    float err_CV_L_rel = 0.0f;      // (stimato - vero) / vero
-    float err_CV_T_rel = 0.0f;
-    float err_ratio_rel = 0.0f;     // errore relativo su CV_L / CV_T
     bool valid = false;
 };
 

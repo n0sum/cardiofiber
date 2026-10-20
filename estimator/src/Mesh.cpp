@@ -372,22 +372,17 @@ std::vector<FaceError> Mesh::computeAnisotropyErrors(const std::vector<FaceAniso
     std::vector<FaceError> err(faces.size());
     for (int i = 0; i < faces.size(); ++i) {
         FaceError &e = err[i];
-        e.err_angle = e.err_CV_L_rel = e.err_CV_T_rel = e.err_ratio_rel = nan;
+        e.err_angle = nan;
         if (!est[i].estimable) continue;                      // lasciata marcata, non esclusa ne' riempita
 
         const Face &face = faces[i];
         const vec3 n = normalize(cross(vPos[face.b] - vPos[face.a], vPos[face.c] - vPos[face.a]));
-        const vec3 a = normalize(est[i].fiber_dir - dot(est[i].fiber_dir, n) * n);
-        const vec3 b = normalize(fGT[i].fiber_dir - dot(fGT[i].fiber_dir, n) * n);
+        // entrambe gia' nel piano: la stimata e' costruita nella base {u, w}, la vera proiettata all'import
+        const vec3 a = est[i].fiber_dir;
+        const vec3 b = fGT[i].fiber_dir;
         // angolo nel piano, poi modulo pi: nessuna scelta di orientamento
         const double delta = std::abs(std::atan2(double(dot(n, cross(a, b))), double(dot(a, b))));
         e.err_angle = static_cast<float>(std::min(delta, M_PI - delta) * 180.0 / M_PI);
-
-        const FaceGroundTruth &g = fGT[i];
-        e.err_CV_L_rel = (est[i].CV_L - g.CV_L) / g.CV_L;
-        e.err_CV_T_rel = (est[i].CV_T - g.CV_T) / g.CV_T;
-        const double ratioTrue = double(g.CV_L) / g.CV_T;
-        e.err_ratio_rel = static_cast<float>((double(est[i].CV_L) / est[i].CV_T - ratioTrue) / ratioTrue);
         e.valid = true;
     }
     return err;
@@ -401,7 +396,7 @@ void Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& exp
     if (!out) throw std::runtime_error("exportErrorsAsCsv: impossibile aprire " + filename);
     out << std::scientific << std::setprecision(9);
     out << "experiment_id,face_id,area,region_tag,estimable,k_used,cond,CV_L_est,CV_T_est,CV_L_true,CV_T_true,"
-           "err_angle,err_CV_L_rel,err_CV_T_rel,err_ratio_rel\n";
+           "err_angle\n";
     for (int i = 0; i < faces.size(); ++i) {
         const FaceAnisotropy &a = est[i];
         const FaceGroundTruth &g = fGT[i];
@@ -412,8 +407,7 @@ void Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& exp
         out << ',';
         if (a.estimable) out << a.CV_L << ',' << a.CV_T << ','; else out << ",,";
         out << g.CV_L << ',' << g.CV_T << ',';
-        if (e.valid) out << e.err_angle << ',' << e.err_CV_L_rel << ',' << e.err_CV_T_rel << ',' << e.err_ratio_rel;
-        else out << ",,,";
+        if (e.valid) out << e.err_angle;
         out << '\n';
     }
     out.close();
@@ -433,8 +427,7 @@ void Mesh::exportMaskPairsAsCsv(const std::string& filename, const std::string& 
             // r = g^T M_true g - 1, M_true = CV_L^2 f f^T + CV_T^2 t t^T: solo valutazione, mai nella stima
             const Face &face = faces[i];
             const dvec3 n = normalize(dvec3(cross(vPos[face.b] - vPos[face.a], vPos[face.c] - vPos[face.a])));
-            const dvec3 d(fGT[i].fiber_dir);
-            const dvec3 f = normalize(d - dot(d, n) * n);
+            const dvec3 f(fGT[i].fiber_dir);                       // gia' proiettata e normalizzata all'import
             const dvec3 t = cross(n, f);
             const dvec3 g(fTangents[k][i]);
             const double gf = dot(g, f), gt = dot(g, t);

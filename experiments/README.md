@@ -108,13 +108,11 @@ Una riga per faccia, nessuna aggregazione. Colonne, nell'ordine:
 | `CV_T_est`      | CV trasversale stimata, mm/ms; vuota se non stimabile   |
 | `CV_L_true`     | CV longitudinale vera, mm/ms                            |
 | `CV_T_true`     | CV trasversale vera, mm/ms                              |
-| `err_angle`     | errore angolare di fibra, gradi                         |
-| `err_CV_L_rel`  | errore relativo su CV_L                                 |
-| `err_CV_T_rel`  | errore relativo su CV_T                                 |
-| `err_ratio_rel` | errore relativo sul rapporto CV_L/CV_T                  |
+| `err_angle`     | errore angolare di fibra, gradi; vuoto se non stimabile |
 
-Gli errori relativi sono con segno, `(stimato - vero) / vero`. Le ultime
-quattro colonne sono vuote sulle facce non stimabili.
+Gli errori relativi sulle velocita' non stanno nel CSV: li calcola
+`analysis/analisi.py` da `CV_*_est` e `CV_*_true`, con segno,
+`(stimato - vero) / vero`.
 
 `experiment_id` sta su ogni riga perche' i CSV di esperimenti diversi si
 possano concatenare e raggruppare senza perdere la provenienza:

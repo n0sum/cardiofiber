@@ -86,6 +86,9 @@ def main():
         raise SystemExit(f"{CSV_PATH}: attesi dati di un solo esperimento, trovati {list(ids)}")
     exp_id = ids[0]
     FIG_DIR.mkdir(parents=True, exist_ok=True)
+    # errori relativi con segno, (stimato - vero) / vero; NaN sulle facce non stimabili
+    for cv in ("CV_L", "CV_T"):
+        df[f"err_{cv}_rel"] = (df[f"{cv}_est"] - df[f"{cv}_true"]) / df[f"{cv}_true"]
 
     pairs = pd.read_csv(MASK_CSV_PATH, dtype={"experiment_id": str, "map_name": str})
     pids = pairs["experiment_id"].unique()
