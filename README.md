@@ -60,7 +60,6 @@ data/
   clinical/           mesh cliniche, NON redistribuibili
 
 output/               CSV di errori per faccia, figure
-docs/                 note di progetto, dump dell'ambiente
 ```
 
 `data/` e `output/` non esistono in un clone pulito: le creano gli script.
@@ -69,7 +68,7 @@ docs/                 note di progetto, dump dell'ambiente
 
 ## Requisiti
 
-- Linux. Sviluppato su Pop!_OS 24.04.
+- Linux. Sviluppato su Ubuntu 26.04.1, Python 3.13.
 - **conda** con l'ambiente di `environment.yml`:
   ```bash
   conda env create -f environment.yml
@@ -79,7 +78,9 @@ docs/                 note di progetto, dump dell'ambiente
   ubuntu20). Serve `/usr/local/bin/openCARP`. `carputils` non e'
   necessario: i file di parametri si scrivono a mano.
 - **Docker**, per AugmentA.
-- **CMake** >= 3.20 e un compilatore C++20.
+- **CMake** >= 4.1, un compilatore C++20 e **glm** (header-only, l'unica
+  dipendenza C++ esterna; su Ubuntu `libglm-dev`). Versioni testate:
+  GCC 15.2.0, CMake 4.2.3, libglm-dev 1.0.1.
 - ParaView, opzionale, per l'ispezione visiva.
 
 ---
@@ -123,8 +124,12 @@ bash simulator/stage1/run_augmenta.sh
 
 Flag usati: `--closed_surface 0 --open_orifices 0 --atrium LA
 --SSM_fitting 0 --resample_input 0 --normals_outside 1 --add_bridges 0
---MRI 0 --ofmt vtk`, con `--apex-file ssm_mean_LA_apexes.csv` per evitare
-la selezione interattiva dell'apice dell'auricola.
+--MRI 0 --ofmt vtk`.
+
+L'apice dell'auricola e' stato scelto a mano, con la selezione
+interattiva di AugmentA (punto 1405). AugmentA ha poi scritto le sue
+coordinate in `ssm_mean_LA_apexes.csv`. Per rifare la run senza
+selezione interattiva si aggiunge `--apex-file ssm_mean_LA_apexes.csv`.
 
 `--resample_input 0` e' essenziale: mantiene l'output nello spazio di
 indici dell'SSM, quindi non serve nessuna proiezione a valle.
@@ -166,8 +171,11 @@ di configurazione sono relativi a essa.
 ### 6. Analisi
 
 ```bash
-python analysis/analisi.py
+python analysis/analisi.py aniso_const
 ```
+
+L'argomento e' il nome della cartella in `output/`; le figure vanno in
+`output/aniso_const/figures/`.
 
 ---
 
@@ -236,11 +244,14 @@ scheletro sintetico.
 ## Limiti noti
 
 - **Eikonale pura, senza termine di curvatura.** Il modello e' meno
-  accurato dove il fronte e' molto curvo, cioe' vicino ai siti di stimolo:
-  e' la ragione fisica, non solo numerica, della maschera di prossimita'.
-  La scelta dell'eikonale e' necessaria, non di comodo: nel monodominio la
-  CV va calibrata e **dipende dalla risoluzione della mesh**, che e' uno
-  degli assi sperimentali di questa tesi.
+  accurato dove il fronte e' molto curvo, cioe' vicino ai siti di stimolo.
+  Questo non tocca la validazione: la ground truth sintetica e' generata
+  dallo stesso modello, quindi l'errore di stima vicino ai siti e' di
+  discretizzazione (il gradiente lineare per faccia non segue la curvatura
+  del fronte), non di fisica mancante. La scelta dell'eikonale e'
+  necessaria, non di comodo: nel monodominio la CV va calibrata e
+  **dipende dalla risoluzione della mesh**, che e' uno degli assi
+  sperimentali di questa tesi.
 - **Le collisioni di fronte sono intrinseche all'equazione**, non artefatti
   della mesh. Dove due fronti si incontrano T ha una piega e il gradiente
   non esiste. Vanno mascherate; nessun raffinamento le elimina.
@@ -254,14 +265,3 @@ scheletro sintetico.
 - **Il confronto con Roney** va fatto implementando il loro metodo sui
   dati di questo repository, non confrontando numeri calcolati su dataset
   diversi.
-
----
-
-## Convenzione di provenienza
-
-Ogni cartella generata sotto `data/` porta un `provenance.json` che
-dichiara da quale script, con quali parametri, da quale commit e da quali
-ingressi e' stata prodotta. Template in `PROVENANCE_TEMPLATE.json`.
-
-Senza, a distanza di mesi non e' piu' possibile sapere cosa ha prodotto
-cosa, e un lettore esterno non puo' saperlo affatto.
