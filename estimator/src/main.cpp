@@ -11,26 +11,17 @@
 namespace {
     void runExperiment(const ExperimentConfig& cfg) {
         std::cout << "== esperimento " << cfg.experimentId << "  (" << cfg.sourcePath << ")\n";
-        if (!cfg.description.empty()) std::cout << "   " << cfg.description << "\n";
         std::cout << "   maps = ";
         if (cfg.allMaps) std::cout << "all";
         else for (size_t i = 0; i < cfg.maps.size(); ++i) std::cout << (i ? "," : "") << cfg.maps[i];
         std::cout << "  mask.min_singular_value = " << cfg.masks.minSingularValue
-                  << "  mask.min_area_vector_norm = " << cfg.masks.minAreaVectorNorm << "\n"
-                  << "   mask.collision_angle_deg = " << cfg.masks.collisionAngleDeg << "\n";
+                  << "  mask.collision_angle_deg = " << cfg.masks.collisionAngleDeg << "\n";
 
         Mesh m;
         m.importMultiLatPly(cfg.latPly);
-        if (!cfg.allMaps) {
-            for (int k : cfg.maps)
-                if (k >= m.mapCount())
-                    throw std::runtime_error(cfg.sourcePath + ":" + std::to_string(cfg.mapsLine) +
-                                             ": mappa " + std::to_string(k) + " fuori range, " + cfg.latPly +
-                                             " ha " + std::to_string(m.mapCount()) + " mappe");
-            m.selectMaps(cfg.maps);
-        }
+        if (!cfg.allMaps) m.selectMaps(cfg.maps);
         m.updateVertexNormals();
-        m.updateAllTangetsAsQualitiesGradients();
+        m.computeGradients();
         // maschere e stima prima di caricare la ground truth: non possono leggerla
         m.updateMasks(cfg.masks);
         m.updateAnisotropyEstimates(cfg.masks);
