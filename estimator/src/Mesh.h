@@ -14,22 +14,19 @@
 #include <glm/mat2x2.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_access.hpp>
-#include "Face.h"
 
 using namespace glm;
 
-
+struct Face { int a, b, c; };
 
 // Stima dell'anisotropia di una faccia (stadio 5).
 // Base tangente locale, deterministica (dipende solo dall'ordine dei vertici memorizzato):
 //   e1 = p_b - p_a,  n = normalize(cross(e1, e2)),  u = normalize(e1),  w = cross(n, u)
-// M11/M12/M22 sono le componenti del tensore (mm^2/ms^2) in questa base {u, w}.
+// Il tensore (mm^2/ms^2) si stima in questa base; fiber_dir e' riportata in 3D.
 struct FaceAnisotropy {
-    vec3 u = vec3(0), w = vec3(0);
     float CV_L = 0.0f;              // mm/ms
     float CV_T = 0.0f;              // mm/ms
     vec3 fiber_dir = vec3(0);       // unitario, tangente alla faccia (senza verso)
-    float M11 = 0.0f, M12 = 0.0f, M22 = 0.0f;
     float cond = 0.0f;              // sigma_max / sigma_min del sistema
     int k_used = 0;                 // righe (mappe) non escluse dalle maschere, entrate nel sistema
     bool estimable = false;         // false: faccia lasciata marcata, campi non significativi
@@ -47,7 +44,6 @@ struct FaceGroundTruth {
 // Soglie delle maschere della stima (stadio 5). Vengono dal file di esperimento, non hanno default nel codice.
 struct EstimationMasks {
     double minSingularValue;        // sigma_min assoluta di R (fronti quasi paralleli)
-    double minAreaVectorNorm;       // su |cross(e1,e2)| (= 2|a|), mm^2
     double collisionAngleDeg;       // coppia esclusa se l'angolo max col gradiente di un vicino > soglia, gradi
 };
 
@@ -73,15 +69,6 @@ class Mesh{
     std::vector<vec3> vPos;
     // allineato a faces; slot s = vicino oltre lo spigolo v[s]-v[(s+1)%3], v = {a,b,c}; -1 se di bordo
     std::vector<std::array<int,3>> faceNeighbors;
-    //std::vector<int> vExtEml;
-    //std::vector<int> vEml;
-    //std::vector<int> vScar;
-    //std::vector<int> vOutOfRange;
-    // std::vector<int> etoh;
-    // std::vector<int> vtoh;
-    //std::vector<Half> halfs;
-    //bool halfed;
-
 
     std::vector<std::vector<vec3>> fTangents;
 
@@ -97,95 +84,53 @@ class Mesh{
 public:
     Mesh();
     //import export
-    //bool importPly(const std::string &filename);
-    //bool importPlyDualLat(const std::string &filename);
-    //bool importMesh(const std::string &filename);
     void exportAsPly(const std::string &filename) const;
-    //void exportAsPly2(const std::string &filename) const;
-    //void exportTangents1AsObj(const std::string &filename, float scala , int densify = 0)  const;
-    //void exportTangents2AsObj(const std::string &filename, float scala , int densify = 0)  const;
     void exportAllTangentsAsObj(std::string filename) const;
-    bool importMultiLatPly(const std::string filename);
-    int mapCount() const { return vQualities.size(); }
-    const std::vector<std::string>& mapNames() const { return qualityNames; }
+    void importMultiLatPly(const std::string filename);
     // Tiene solo le mappe LAT indicate, nell'ordine dato. Da chiamare prima del calcolo dei gradienti.
     void selectMaps(const std::vector<int>& indices);
     // Ground truth per faccia (elemento face: fx, fy, fz, elem_tag). Richiede la mesh gia' importata.
     // Ogni tag presente nel file deve comparire in cvByRegion, altrimenti errore.
-    bool importPlyGroundTruth(const std::string& filename, const std::map<int, RegionCV>& cvByRegion);
+    void importPlyGroundTruth(const std::string& filename, const std::map<int, RegionCV>& cvByRegion);
     // Legge la mappatura region_tag -> (CV_L, CV_T) da CSV (mm/ms; righe vuote, '#' e intestazione saltate).
-    // Errore su file mancante, riga malformata, tag duplicato, CV <= 0, nessuna riga dati.
     static std::map<int, RegionCV> importRegionCV(const std::string& filename);
-    const std::vector<FaceGroundTruth>& groundTruth() const { return fGT; }
 
     // Errori per faccia di una stima rispetto alla ground truth. Senza stato: invocabili piu' volte su stime diverse.
     std::vector<FaceError> computeAnisotropyErrors(const std::vector<FaceAnisotropy>& est) const;
     // CSV con una riga per faccia, nessuna aggregazione. experimentId e' la prima colonna, ripetuta su ogni
     // riga: i CSV di esperimenti diversi si concatenano e si raggruppano senza perdere la provenienza.
-    bool exportErrorsAsCsv(const std::string& filename, const std::string& experimentId,
+    void exportErrorsAsCsv(const std::string& filename, const std::string& experimentId,
                            const std::vector<FaceAnisotropy>& est) const;
-    bool exportErrorsAsCsv(const std::string& filename, const std::string& experimentId) const {
-        return exportErrorsAsCsv(filename, experimentId, fAniso);
+    void exportErrorsAsCsv(const std::string& filename, const std::string& experimentId) const {
+        exportErrorsAsCsv(filename, experimentId, fAniso);
     }
     // CSV con una riga per coppia (faccia, mappa): maschera (0/1) e r = g^T M_true g - 1.
     // r e' solo una metrica di valutazione: non viene memorizzato e non rientra nella stima.
-    bool exportMaskPairsAsCsv(const std::string& filename, const std::string& experimentId) const;
+    void exportMaskPairsAsCsv(const std::string& filename, const std::string& experimentId) const;
 
 
     //processing
-    bool updateAllTangetsAsQualitiesGradients();
+    // Gradiente LAT per faccia, per ogni mappa.
+    void computeGradients();
 
-    bool updateVertexNormals();
+    void updateVertexNormals();
 
     // Maschere per coppia (faccia, mappa), dai soli LAT, gradienti grezzi e geometria. Calcolate una volta.
-    // Richiede updateAllTangetsAsQualitiesGradients() gia' chiamato.
-    bool updateMasks(const EstimationMasks& masks);
+    // Richiede computeGradients() gia' chiamato.
+    void updateMasks(const EstimationMasks& masks);
 
     // Stima per faccia (indipendente dalle altre) di CV_L, CV_T, fiber_dir a partire da fTangents,
     // usando solo le righe con fMask == 0. Richiede updateMasks() gia' chiamato.
-    bool updateAnisotropyEstimates(const EstimationMasks& masks);
-    const std::vector<FaceAnisotropy>& anisotropy() const { return fAniso; }
+    void updateAnisotropyEstimates(const EstimationMasks& masks);
 
 
 private:
     //processing
-    //int farthestPointFrom(int x) const;
-    //float euristicDiameter() const;
     std::vector<vec3> areaVectors() const;
     std::vector<vec3> distributeNormalOnVertex(const std::vector<vec3> &fNorm) const;
     vec3 faceGradientOf(int faceIndex, int mapIndex ) const;
-    //std::vector<vec3> distributeGradientOnVertex(const std::vector<vec3> &fGrad, bool piInvariant = false, bool projectOnTangentPlane = true) const;
-    /* bool hasTangentField(const Face &face) const;
-
-    template<typename T, typename Func, typename... Args>
-    static bool filterBy(const Face &face, const std::vector<T> &values, Func f,  Args&&... args){
-        return f(values[face.a], values[face.b], values[face.c], std::forward<Args>(args)...);
-    }
-    template<typename T>
-    static bool allEqualsTo(T a, T b, T c, T x) {
-        return (a == x && b == x && c == x);
-    }
-    template<typename T>
-    static bool equals(T a, T b, T c) {
-        return (a == b && b == c);
-    }
-    template<typename T>
-    T valueAt(int fIndex, vec2 bari, const std::vector<T> &vAttr) const {
-        Face face = faces[fIndex];
-        return vAttr[face.a] * bari.x + vAttr[face.b] * bari.y + vAttr[face.c] * (1 - bari.x - bari.y);
-    } */
-
-    bool updateTangetsAsQualityGradient(int x);
-    //vec3 posAt( int fIndex, vec2 bari) const { return valueAt<vec3>(fIndex, bari, vPos); }
-    //vec3 tangentAt(const std::vector<vec3> vTan, int fIndex, vec2 bari) const { return valueAt<vec3>(fIndex, bari, vTan); }
-    //vec3 normalAt( int fIndex, vec2 bari) const { return normalize(valueAt<vec3>(fIndex, bari, vNorm)); }
-    //bool populateHalfs();
-    //getters
-    //static int ftoh(int f) {return f*3;}
     //import export helpers
-    //void exportTangentsAsObj(const std::vector<vec3> vTan, const std::string &filename, float scala , int densify)  const;
     void exportTangentsAsObj(std::string filename, int mapIndex) const;
 
 
 };
-

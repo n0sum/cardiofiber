@@ -4,13 +4,11 @@
 
 #include <happly.h>
 #include "Mesh.h"
-#include "Face.h"
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include <string>
 #include <vector>
-#include <functional>
-#include <cctype>
 #include <unordered_map>
 #include <utility>
 #include <algorithm>
@@ -18,11 +16,7 @@
 #include <cmath>
 #include <limits>
 #include <iomanip>
-#include <cstdlib>
 #include <stdexcept>
-
-//PROSSIMI TODO
-// sistemare normali
 
 
 //helpers
@@ -102,26 +96,6 @@ namespace {
 
 // metodi processing
 
-// int Mesh::farthestPointFrom(int x) const {
-//     int maxInd = x;
-//     float max = 0.0;
-//     for (int i = 0; i < vPos.size(); ++i){
-//         float dist = distance(vPos[x], vPos[i]);
-//         if (dist > max) {
-//             maxInd = i;
-//             max = dist;
-//         }
-//     }
-//     return maxInd;
-// }
-// float Mesh::euristicDiameter() const {
-//     int x = 0;
-//     for (int i = 0; i < 3; ++i) {
-//         x = farthestPointFrom(x);
-//     }
-//     return distance(vPos[x],vPos[farthestPointFrom(x)]);
-// }
-
 std::vector<vec3> Mesh::areaVectors() const {
     std::vector<vec3>  result(faces.size() );
    for (int i = 0; Face face : faces) {
@@ -151,77 +125,23 @@ vec3 Mesh::faceGradientOf(int faceIndex, int mapIndex) const {
         dot(e1,e2), dot(e2,e2)
         );
     vec2 k(vQualities[mapIndex][face.b]-vQualities[mapIndex][face.a], vQualities[mapIndex][face.c]-vQualities[mapIndex][face.a]);
-    if (std::abs(determinant(A)) < 1e-6f) {
-        return vec3(0,0,0);
-    }
     mat2 inv = inverse(A);
     vec2 soluzione = inv*k;
     return (soluzione.x * e1 + soluzione.y * e2);
 }
 
-// std::vector<vec3> Mesh::distributeGradientOnVertex(const std::vector<vec3> &fGrad, bool piInvariant, bool projectOnTangentPlane) const {
-//     const int vNumber = vPos.size();
-//     std::vector<vec3> result(vNumber);
-//     std::vector<int> count(vNumber);
-//
-//     if (piInvariant) {
-//         for (int i = 0; i < faces.size(); ++i) if (hasTangentField(faces[i])){
-//             const Face &f = faces[i];
-//             const int verts[3] = {f.a, f.b, f.c};
-//             for (int vert : verts) {
-//                 vec3 grad = fGrad[i];
-//                 if (dot(result[vert],grad) < 0) {
-//                     grad = -grad;
-//                 }
-//                 result[vert] += grad;
-//                 ++count[vert];
-//             }
-//         }
-//         for (int i = 0; i < vNumber; ++i) {
-//             if (count[i] > 0) result[i] /= count[i];
-//         }
-//     } else {
-//         for (int i = 0; i < faces.size(); ++i) if (hasTangentField(faces[i])){
-//             const Face &f = faces[i];
-//             result[f.a] += fGrad[i];
-//             result[f.b] += fGrad[i];
-//             result[f.c] += fGrad[i];
-//             ++count[f.a];
-//             ++count[f.b];
-//             ++count[f.c];
-//         }
-//         for (int i = 0; i < vNumber; ++i) {
-//             if (count[i] > 0) result[i] /= static_cast<float>(count[i]);
-//         }
-//     }
-//
-//     if (projectOnTangentPlane) {
-//         for (int i = 0; i < vNumber; ++i) {
-//             const vec3 &n = vNorm[i];
-//             result[i] -= dot(result[i], n) * n;
-//         }
-//     }
-//
-//     return result;
-// }
-
-bool Mesh::updateVertexNormals() {
+void Mesh::updateVertexNormals() {
     vNorm = normalizeVectors(distributeNormalOnVertex(areaVectors()));
-    return true;
 }
 
-bool Mesh::updateTangetsAsQualityGradient(int map) {
-    if (fTangents.size() != vQualities.size() ){
-        fTangents.resize(vQualities.size());
-    }
-    fTangents[map].resize(faces.size());
-    for (int i = 0; i < faces.size(); ++i){
-        fTangents[map][i] = faceGradientOf(i,map);
-    }
-    return true;
+void Mesh::computeGradients() {
+    fTangents.assign(vQualities.size(), std::vector<vec3>(faces.size()));
+    for (int k = 0; k < vQualities.size(); ++k)
+        for (int i = 0; i < faces.size(); ++i)
+            fTangents[k][i] = faceGradientOf(i, k);
 }
 
-bool Mesh::updateMasks(const EstimationMasks& masks) {
+void Mesh::updateMasks(const EstimationMasks& masks) {
     const int K = fTangents.size();
     if (K != vQualities.size()) throw std::runtime_error("updateMasks: gradienti non calcolati");
     fMask.assign(K, std::vector<uint8_t>(faces.size(), 0));
@@ -262,10 +182,9 @@ bool Mesh::updateMasks(const EstimationMasks& masks) {
         std::cout << "updateMasks: " << qualityNames[k] << ": collisione " << nColl
                   << " su " << faces.size() << " facce\n";
     }
-    return true;
 }
 
-bool Mesh::updateAnisotropyEstimates(const EstimationMasks& masks) {
+void Mesh::updateAnisotropyEstimates(const EstimationMasks& masks) {
     fAniso.assign(faces.size(), FaceAnisotropy());
     const int K = fTangents.size();
     if (fMask.size() != K) throw std::runtime_error("updateAnisotropyEstimates: chiamare prima updateMasks");
@@ -285,14 +204,9 @@ bool Mesh::updateAnisotropyEstimates(const EstimationMasks& masks) {
         const vec3 e1 = vPos[face.b] - vPos[face.a];
         const vec3 e2 = vPos[face.c] - vPos[face.a];
         const vec3 a2 = cross(e1, e2);
-        const float a2len = length(a2);
-        const float e1len = length(e1);
-        if (!(a2len > masks.minAreaVectorNorm) || !(e1len > 0.0f)) continue;
-        const vec3 n = a2 / a2len;
-        const vec3 u = e1 / e1len;
+        const vec3 n = a2 / length(a2);
+        const vec3 u = e1 / length(e1);
         const vec3 w = cross(n, u);
-        fa.u = u;
-        fa.w = w;
 
         std::vector<std::array<double,3>> R(used.size());
         const std::vector<double> b(used.size(), 1.0);
@@ -314,60 +228,18 @@ bool Mesh::updateAnisotropyEstimates(const EstimationMasks& masks) {
         if (!(lambda2 > kMinEigenvalue)) continue;
 
         const double theta = 0.5 * std::atan2(2.0*M12, M11 - M22);
-        fa.M11 = M11; fa.M12 = M12; fa.M22 = M22;
         fa.CV_L = static_cast<float>(std::sqrt(lambda1));
         fa.CV_T = static_cast<float>(std::sqrt(lambda2));
         fa.fiber_dir = static_cast<float>(std::cos(theta))*u + static_cast<float>(std::sin(theta))*w;
         fa.estimable = true;
     }
-    return true;
 }
-
-bool Mesh::updateAllTangetsAsQualitiesGradients(){
-    for(int i = 0; i < vQualities.size(); ++i){
-        updateTangetsAsQualityGradient(i);
-    }
-    return true;
-};
-
-
-// bool Mesh::hasTangentField(const Face &face) const {
-//     bool notExtEml = filterBy(face, vExtEml,    allEqualsTo<int>, 0);
-//     bool notEml    = filterBy(face, vEml,        allEqualsTo<int>, 0);
-//     bool notScar   = filterBy(face, vScar,       allEqualsTo<int>, 0);
-//     bool notOor    = filterBy(face, vOutOfRange, allEqualsTo<int>, 0);
-//     return (notEml && notExtEml && notScar && notOor);
-// }
-
-// bool Mesh::populateHalfs() {
-//     struct PairHash {
-//         size_t operator()(const std::pair<int, int>& p) const {
-//             return std::hash<int>()(p.first) ^ (std::hash<int>()(p.second) << 1);
-//         }
-//     };
-//
-//     std::unordered_map<std::pair<int, int>, int, PairHash> mappa;
-//
-//     for (int i = 0; i < faces.size(); ++i) {
-//         int a = faces[i].a;
-//         int b = faces[i].b;
-//         int c = faces[i].c;
-//         halfs.emplace_back(a, i*3 + 1, i);
-//         if (mappa.contains({b, a})) {
-//             Half half = halfs[mappa[{b,a}]];
-//             half.opp = i*3;
-//             halfs[i*3].opp = mappa[{b,a}];
-//         }
-//         halfs.emplace_back(faces[i].b, i*3 + 2, i);
-//         halfs.emplace_back(faces[i].c, i*3, i);
-//     }
-// }
 
 // import export
 
 Mesh::Mesh() = default;
 
-bool Mesh::importMultiLatPly(std::string filename) {
+void Mesh::importMultiLatPly(std::string filename) {
     if (imported) throw std::runtime_error("already imported a mesh in this object");
     imported = true;
 
@@ -386,32 +258,13 @@ bool Mesh::importMultiLatPly(std::string filename) {
         vQualities.push_back(v.getProperty<float>("lat_" + std::to_string(k)));
 
     // nomi dei siti dai commenti "lat_k NOME": finiscono non quotati nel CSV delle maschere
-    qualityNames.assign(vQualities.size(), "");
-    for (const std::string &c : plyIn.comments) {
-        const size_t sp = c.find(' ');
-        if (sp == std::string::npos || c.rfind("lat_", 0) != 0) continue;
-        const std::string idx = c.substr(4, sp - 4);
-        if (idx.empty() || !std::all_of(idx.begin(), idx.end(), [](unsigned char ch) { return std::isdigit(ch); })) continue;
-        const int k = std::stoi(idx);
-        if (k >= vQualities.size()) continue;
-        std::string name = c.substr(sp + 1);
-        name.erase(0, name.find_first_not_of(" \t"));
-        name.erase(name.find_last_not_of(" \t\r") + 1);
-        if (!qualityNames[k].empty())
-            throw std::runtime_error("importMultiLatPly: nome di lat_" + idx + " ripetuto nei commenti");
-        if (name.empty() || !std::all_of(name.begin(), name.end(), [](unsigned char ch) {
-                return std::isalnum(ch) || ch == '_' || ch == '-' || ch == '.'; }))
-            throw std::runtime_error("importMultiLatPly: nome di lat_" + idx + " '" + name +
-                                     "' non valido: ammessi solo lettere, cifre, '_', '-', '.'");
-        qualityNames[k] = name;
-    }
-    for (int k = 0; k < qualityNames.size(); ++k) {
-        if (qualityNames[k].empty())
+    for (int k = 0; k < vQualities.size(); ++k) {
+        const std::string prefix = "lat_" + std::to_string(k) + " ";
+        const auto c = std::find_if(plyIn.comments.begin(), plyIn.comments.end(),
+                                    [&](const std::string &s) { return s.rfind(prefix, 0) == 0; });
+        if (c == plyIn.comments.end())
             throw std::runtime_error("importMultiLatPly: manca il commento 'lat_" + std::to_string(k) + " NOME'");
-        for (int j = 0; j < k; ++j)
-            if (qualityNames[j] == qualityNames[k])
-                throw std::runtime_error("importMultiLatPly: lat_" + std::to_string(j) + " e lat_" + std::to_string(k)
-                                         + " hanno lo stesso nome '" + qualityNames[k] + "'");
+        qualityNames.push_back(c->substr(prefix.size()));
     }
 
     const auto& prov_faces = plyIn.getElement("face").getListProperty<int>("vertex_indices");
@@ -442,7 +295,6 @@ bool Mesh::importMultiLatPly(std::string filename) {
               << faces.size() << " facce, " << vQualities.size() << " mappe (";
     for (int k = 0; k < qualityNames.size(); ++k) std::cout << (k ? "," : "") << qualityNames[k];
     std::cout << "), lunghezza media spigoli " << edgeLenSum / firstSeen.size() << " mm\n";
-    return true;
 }
 
 void Mesh::selectMaps(const std::vector<int>& indices) {
@@ -460,12 +312,9 @@ void Mesh::selectMaps(const std::vector<int>& indices) {
     }
     vQualities = std::move(selected);
     qualityNames = std::move(selectedNames);
-    // il nome e' la chiave della mappa nel CSV delle maschere: un disallineamento indicherebbe la mappa sbagliata
-    if (qualityNames.size() != vQualities.size())
-        throw std::runtime_error("selectMaps: nomi e mappe non allineati dopo la selezione");
 }
 
-bool Mesh::importPlyGroundTruth(const std::string& filename, const std::map<int, RegionCV>& cvByRegion) {
+void Mesh::importPlyGroundTruth(const std::string& filename, const std::map<int, RegionCV>& cvByRegion) {
     if (faces.empty()) throw std::runtime_error("importPlyGroundTruth: importare prima la mesh");
 
     happly::PLYData plyIn(filename);
@@ -479,81 +328,40 @@ bool Mesh::importPlyGroundTruth(const std::string& filename, const std::map<int,
                                  + std::to_string(faces.size()) + " nella mesh");
 
     std::vector<FaceGroundTruth> gt(faces.size());
-    std::map<int, int> tagCount;
-    double maxDevDeg = 0.0;
     for (int i = 0; i < faces.size(); ++i) {
         const Face &face = faces[i];
         const vec3 n = normalize(cross(vPos[face.b] - vPos[face.a], vPos[face.c] - vPos[face.a]));
         const vec3 d(fx[i], fy[i], fz[i]);
-        const float dlen = length(d);
         const vec3 t = d - dot(d, n) * n;                    // proiezione sul piano della faccia
-        const float tlen = length(t);
-        if (!(dlen > 0.0f) || !(tlen > 1e-6f * dlen))
-            throw std::runtime_error("importPlyGroundTruth: fibra nulla o normale alla faccia " + std::to_string(i));
-        maxDevDeg = std::max(maxDevDeg, std::asin(std::min(1.0f, std::abs(dot(d, n)) / dlen)) * 180.0 / M_PI);
 
         const auto it = cvByRegion.find(tag[i]);
         if (it == cvByRegion.end())
             throw std::runtime_error("importPlyGroundTruth: tag " + std::to_string(tag[i]) + " (faccia "
                                      + std::to_string(i) + ") assente dalla mappatura region_tag -> CV");
-        gt[i].fiber_dir = t / tlen;
+        gt[i].fiber_dir = t / length(t);
         gt[i].CV_L = it->second.CV_L;
         gt[i].CV_T = it->second.CV_T;
         gt[i].region_tag = tag[i];
-        ++tagCount[tag[i]];
     }
     fGT = std::move(gt);
 
-    std::cout << "importPlyGroundTruth: " << fGT.size() << " facce, deviazione max dal piano "
-              << maxDevDeg << " gradi; tag:";
-    for (const auto &[t, n] : tagCount) std::cout << " " << t << "=" << n;
-    std::cout << "\n";
-    return true;
+    std::cout << "importPlyGroundTruth: " << fGT.size() << " facce\n";
 }
 
 std::map<int, RegionCV> Mesh::importRegionCV(const std::string& filename) {
     std::ifstream in(filename);
     if (!in) throw std::runtime_error("importRegionCV: impossibile aprire " + filename);
-
-    auto trim = [](std::string s) {
-        const char *ws = " \t\r\n";
-        const size_t b = s.find_first_not_of(ws);
-        if (b == std::string::npos) return std::string();
-        return s.substr(b, s.find_last_not_of(ws) - b + 1);
-    };
-    // intero/float che deve consumare tutto il campo
-    auto parseInt = [](const std::string &s, long &v) {
-        char *end = nullptr;
-        v = std::strtol(s.c_str(), &end, 10);
-        return !s.empty() && *end == '\0';
-    };
-    auto parseFloat = [](const std::string &s, float &v) {
-        char *end = nullptr;
-        v = std::strtof(s.c_str(), &end);
-        return !s.empty() && *end == '\0';
-    };
-
     std::map<int, RegionCV> result;
-    std::string line;
-    for (int lineNo = 1; std::getline(in, line); ++lineNo) {
-        line = trim(line);
-        if (line.empty() || line[0] == '#' || line == "region_tag,CV_L,CV_T") continue;
-
-        const std::string where = filename + ":" + std::to_string(lineNo) + ": ";
-        std::vector<std::string> f;
-        std::stringstream ss(line);
-        for (std::string tok; std::getline(ss, tok, ','); ) f.push_back(trim(tok));
-        if (!line.empty() && line.back() == ',') f.push_back("");
-        long tag; float cvL, cvT;
-        if (f.size() != 3 || !parseInt(f[0], tag) || !parseFloat(f[1], cvL) || !parseFloat(f[2], cvT)
-            || tag < std::numeric_limits<int>::min() || tag > std::numeric_limits<int>::max())
-            throw std::runtime_error("importRegionCV: " + where + "riga malformata: '" + line + "'");
-        if (!std::isfinite(cvL) || !std::isfinite(cvT) || cvL <= 0.0f || cvT <= 0.0f)
-            throw std::runtime_error("importRegionCV: " + where + "CV non positiva o non finita");
-        if (!result.emplace(static_cast<int>(tag), RegionCV{cvL, cvT}).second)
-            throw std::runtime_error("importRegionCV: " + where + "region_tag " + std::to_string(tag) + " duplicato");
+    for (std::string line; std::getline(in, line); ) {
+        if (line.empty() || line[0] == '#' || line.rfind("region_tag", 0) == 0) continue;
+        std::istringstream ss(line);
+        int tag;
+        char comma1, comma2;
+        RegionCV cv;
+        if (!(ss >> tag >> comma1 >> cv.CV_L >> comma2 >> cv.CV_T))
+            throw std::runtime_error("importRegionCV: " + filename + ": riga malformata: '" + line + "'");
+        result[tag] = cv;
     }
-    if (result.empty()) throw std::runtime_error("importRegionCV: nessuna riga dati in " + filename);
     return result;
 }
 
@@ -585,7 +393,7 @@ std::vector<FaceError> Mesh::computeAnisotropyErrors(const std::vector<FaceAniso
     return err;
 }
 
-bool Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& experimentId,
+void Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& experimentId,
                              const std::vector<FaceAnisotropy>& est) const {
     const std::vector<FaceError> err = computeAnisotropyErrors(est);
     const std::vector<vec3> av = areaVectors();                // cross(e1,e2): area = |cross| / 2
@@ -608,10 +416,11 @@ bool Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& exp
         else out << ",,,";
         out << '\n';
     }
-    return static_cast<bool>(out);
+    out.close();
+    if (!out) throw std::runtime_error("exportErrorsAsCsv: errore di scrittura su " + filename);
 }
 
-bool Mesh::exportMaskPairsAsCsv(const std::string& filename, const std::string& experimentId) const {
+void Mesh::exportMaskPairsAsCsv(const std::string& filename, const std::string& experimentId) const {
     const int K = fTangents.size();
     if (fMask.size() != K || qualityNames.size() != K || fGT.size() != faces.size())
         throw std::runtime_error("exportMaskPairsAsCsv: maschere, nomi o ground truth non allineati");
@@ -634,159 +443,9 @@ bool Mesh::exportMaskPairsAsCsv(const std::string& filename, const std::string& 
             out << experimentId << ',' << i << ',' << qualityNames[k] << ',' << int(fMask[k][i]) << ',' << r << '\n';
         }
     }
-    return static_cast<bool>(out);
+    out.close();
+    if (!out) throw std::runtime_error("exportMaskPairsAsCsv: errore di scrittura su " + filename);
 }
-
-// bool Mesh::importMesh(const std::string& filename) {
-//
-//     if (imported) throw std::runtime_error("already imported a mesh in this object");
-//     imported = true;
-//
-//     auto split = [](const std::string& str) {
-//         std::vector<std::string> tokens;
-//         std::istringstream iss(str);
-//         std::string token;
-//
-//         while (iss >> token) {
-//             tokens.push_back(token);
-//         }
-//         return tokens;
-//     };
-//
-//
-//     // Lettura file
-//     std::ifstream file(filename);
-//     if (!file.is_open()) {
-//         throw std::runtime_error("Impossibile aprire il file: " + filename);
-//     }
-//
-//     std::string line;
-//     int count = 0;
-//     int mod = 0;
-//     while (std::getline(file, line)) {
-//         std::vector<std::string> splitted = split(line);
-//         if (splitted.size() == 0) {
-//             mod = 0;
-//             continue;
-//         }
-//         if (splitted[0]=="0") {
-//             count++;
-//             mod = count;
-//         }
-//         switch (mod) {
-//             case 0: break;
-//             case 1: {
-//                 vPos.emplace_back(stof(splitted[2]),stof(splitted[3]),stof(splitted[4]));
-//                 break;
-//             }
-//             case 2: {
-//                 if (stoi(splitted[8])!= -1000000) {
-//                     faces.emplace_back(stoi(splitted[2]),stoi(splitted[3]),stoi(splitted[4]));
-//                 }
-//                 break;
-//             }
-//             case 3: {
-//                 vQuality.push_back(stof(splitted[4]));
-//                 break;
-//             }
-//             case 4: {
-//                 vEml.push_back(stoi(splitted[2]));
-//                 vExtEml.push_back(stoi(splitted[3]));
-//                 vScar.push_back(stoi(splitted[4]));
-//
-//                 break;
-//             }
-//         }
-//
-//     }
-//     return true;
-// }
-
-// bool Mesh::importPly(const std::string &filename){
-//
-//     if (imported) throw std::runtime_error("already imported a mesh in this object");
-//     imported = true;
-//
-//     happly::PLYData plyIn(filename);
-//
-//     vQuality = plyIn.getElement("vertex").getProperty<float>("quality");
-//     std::vector<float> x = plyIn.getElement("vertex").getProperty<float>("x");
-//     std::vector<float> y = plyIn.getElement("vertex").getProperty<float>("y");
-//     std::vector<float> z = plyIn.getElement("vertex").getProperty<float>("z");
-//     const std::vector<std::vector<int>> prov_faces = plyIn.getElement("face").getListProperty<int>("vertex_indices");
-//     std::cout << x.size() << "\n";
-//     vPos.resize(x.size());
-//     for (int j = 0; j < x.size(); ++j) {
-//         vPos[j] = vec3(x[j],y[j],z[j]);
-//     }
-//
-//     faces.reserve(prov_faces.size());
-//     for (const auto & prov_face : prov_faces) {
-//         faces.emplace_back(Face(prov_face[0],prov_face[1],prov_face[2]));
-//     }
-//
-//
-//     return true;
-// }
-
-// bool Mesh::importPlyDualLat(const std::string &filename) {
-//     if (imported) throw std::runtime_error("already imported a mesh in this object");
-//     imported = true;
-//
-//     happly::PLYData plyIn(filename);
-//
-//     vQuality  = plyIn.getElement("vertex").getProperty<float>("quality");
-//     vQuality2 = plyIn.getElement("vertex").getProperty<float>("quality_transferred");
-//
-//     std::vector<float> x  = plyIn.getElement("vertex").getProperty<float>("x");
-//     std::vector<float> y  = plyIn.getElement("vertex").getProperty<float>("y");
-//     std::vector<float> z  = plyIn.getElement("vertex").getProperty<float>("z");
-//     std::vector<float> nx = plyIn.getElement("vertex").getProperty<float>("nx");
-//     std::vector<float> ny = plyIn.getElement("vertex").getProperty<float>("ny");
-//     std::vector<float> nz = plyIn.getElement("vertex").getProperty<float>("nz");
-//
-//     int n = static_cast<int>(x.size());
-//     vPos.resize(n);
-//     vNorm.resize(n);
-//     for (int i = 0; i < n; ++i) {
-//         vPos[i]  = vec3(x[i],  y[i],  z[i]);
-//         vNorm[i] = vec3(nx[i], ny[i], nz[i]);
-//     }
-//
-//     // Inizializza i flag di esclusione a 0 (nessuna zona esclusa) —
-//     // necessario affinché hasTangentField() funzioni correttamente.
-//     vExtEml.assign(n, 0);
-//     vEml.assign(n, 0);
-//     vScar.assign(n, 0);
-//
-//     const auto& prov_faces = plyIn.getElement("face").getListProperty<int>("vertex_indices");
-//
-//     {
-//         auto flagF = plyIn.getElement("vertex").getProperty<float>("oor_flag");
-//         vOutOfRange.resize(n);
-//         for (int i = 0; i < n; ++i)
-//             vOutOfRange[i] = (flagF[i] > 0.5f) ? 1 : 0;
-//     }
-//
-//     // Espansione 2-ring: due passate → maschera vertici OOR + 2 anelli di vicini.
-//     for (int ring = 0; ring < 2; ++ring) {
-//         std::vector<int> expanded = vOutOfRange;
-//         for (const auto& pf : prov_faces) {
-//             if (vOutOfRange[pf[0]] || vOutOfRange[pf[1]] || vOutOfRange[pf[2]])
-//                 expanded[pf[0]] = expanded[pf[1]] = expanded[pf[2]] = 1;
-//         }
-//         vOutOfRange = std::move(expanded);
-//     }
-//
-//     faces.reserve(prov_faces.size());
-//     for (const auto& f : prov_faces) {
-//         faces.emplace_back(f[0], f[1], f[2]);
-//     }
-//
-//     std::cout << "importPlyDualLat: " << n << " vertici, "
-//               << faces.size() << " facce\n";
-//     return true;
-// }
 
 void Mesh::exportAsPly(const std::string &filename) const {
     std::vector<float> x(vPos.size()),y(vPos.size()),z(vPos.size()),nx(vPos.size()),ny(vPos.size()),nz(vPos.size());
@@ -806,7 +465,6 @@ void Mesh::exportAsPly(const std::string &filename) const {
     plyOut.getElement("vertex").addProperty<float>("nx", nx);
     plyOut.getElement("vertex").addProperty<float>("ny", ny);
     plyOut.getElement("vertex").addProperty<float>("nz", nz);
-    // plyOut.getElement("vertex").addProperty<float>("quality", vQuality);
     std::vector<std::vector<int>> vertex_indices(faces.size());
     for (int i = 0; i < faces.size(); ++i) {
         vertex_indices[i] = {faces[i].a, faces[i].b, faces[i].c};
@@ -815,34 +473,6 @@ void Mesh::exportAsPly(const std::string &filename) const {
     plyOut.getElement("face").addListProperty<int>("vertex_indices", vertex_indices);
     plyOut.write(filename, happly::DataFormat::ASCII);
 }
-
-// void Mesh::exportAsPly2(const std::string &filename) const {
-//     std::vector<float> x(vPos.size()),y(vPos.size()),z(vPos.size()),nx(vPos.size()),ny(vPos.size()),nz(vPos.size());
-//     for (int i = 0; i < vPos.size(); i++) {
-//         x[i] = vPos[i].x;
-//         y[i] = vPos[i].y;
-//         z[i] = vPos[i].z;
-//         nx[i] = vNorm[i].x;
-//         ny[i] = vNorm[i].y;
-//         nz[i] = vNorm[i].z;
-//     }
-//     happly::PLYData plyOut;
-//     plyOut.addElement("vertex", vPos.size());
-//     plyOut.getElement("vertex").addProperty<float>("x", x);
-//     plyOut.getElement("vertex").addProperty<float>("y", y);
-//     plyOut.getElement("vertex").addProperty<float>("z", z);
-//     plyOut.getElement("vertex").addProperty<float>("nx", nx);
-//     plyOut.getElement("vertex").addProperty<float>("ny", ny);
-//     plyOut.getElement("vertex").addProperty<float>("nz", nz);
-//     plyOut.getElement("vertex").addProperty<float>("quality", vQuality2);
-//     std::vector<std::vector<int>> vertex_indices(faces.size());
-//     for (int i = 0; i < faces.size(); ++i) {
-//         vertex_indices[i] = {faces[i].a, faces[i].b, faces[i].c};
-//     }
-//     plyOut.addElement("face", faces.size());
-//     plyOut.getElement("face").addListProperty<int>("vertex_indices", vertex_indices);
-//     plyOut.write(filename, happly::DataFormat::ASCII);
-// }
 
 class ObjExporter {
 public:
@@ -899,37 +529,3 @@ void Mesh::exportAllTangentsAsObj(std::string filename) const{
         exportTangentsAsObj(nFilename, i);
     }
 }
-
-// void Mesh::exportTangentsAsObj(const std::vector<vec3> vTan, const std::string &filename, float scale, int densify) const {
-//     int nf = faces.size();
-//     ObjExporter obj(filename);
-//     for (int fi = 0; fi < nf; ++fi){
-//         for (int i = 0; i < densify; ++i) {
-//             for (int j = 0; j < i; ++j) {
-//                 vec2 bari(i/float(densify), j/float(densify));
-//                 bari += vec2(i/(3.0*densify), j/(3.0*densify));
-//                 obj.exportArrow(
-//                     posAt(fi,bari),
-//                      tangentAt(vTan, fi, bari),
-//                      normalAt(fi,bari)
-//                     );
-//             }
-//         }
-//     }
-// }
-
-// void Mesh::exportTangents1AsObj(const std::string &filename, float scala, int densify) const {
-//     if (densify == 0) exportTangentsAsObj(vTangent, filename, scala);
-//     else exportTangentsAsObj(vTangent, filename, scala, densify);
-// }
-
-// void Mesh::exportTangents2AsObj(const std::string &filename, float scala, int densify) const {
-//     if (densify == 0) exportTangentsAsObj(vTangent2, filename, scala);
-//     else exportTangentsAsObj(vTangent2, filename, scala, densify);
-// }
-
-
-
-
-
-

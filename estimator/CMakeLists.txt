@@ -8,7 +8,6 @@ find_package(glm REQUIRED)
 add_executable(Tesi0
         src/main.cpp
         src/Mesh.cpp
-        src/Face.cpp
         src/ExperimentConfig.cpp
 )
 target_include_directories(Tesi0 PRIVATE src include)

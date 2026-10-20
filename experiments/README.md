@@ -22,30 +22,29 @@ ricompilare e di perdere la tracciabilita' di cosa ha prodotto cosa.
 ## Formato
 
 `chiave = valore`, una per riga. Righe vuote e righe che iniziano con `#`
-si saltano. Spazi attorno a `=` e fine riga CRLF sono tollerati.
+si saltano. Spazi attorno a `=` sono tollerati. La descrizione
+dell'esperimento sta nei commenti in testa al file.
 
 | chiave                      | significato                                   |
 |-----------------------------|-----------------------------------------------|
-| `experiment_id`             | identificativo, prima colonna del CSV; solo `[A-Za-z0-9_.-]` |
-| `description`               | testo libero, finisce nei metadati del run     |
+| `experiment_id`             | identificativo, prima colonna del CSV          |
 | `lat_ply`                   | mesh + K mappe LAT: l'ingresso dello stimatore |
 | `ground_truth_ply`          | fibre e tag di regione per faccia              |
 | `region_cv_csv`             | region_tag -> (CV_L, CV_T), in mm/ms           |
 | `maps`                      | `all`, oppure indici separati da virgola       |
 | `mask.min_singular_value`   | soglia sul valore singolare minimo del 3x3     |
-| `mask.min_area_vector_norm` | soglia di faccia degenere                      |
 | `mask.collision_angle_deg`  | soglia del criterio di collisione, gradi       |
 | `output_csv`                | dove scrivere gli errori per faccia            |
 | `output_mask_csv`           | dove scrivere le maschere per coppia           |
 
-Tutte le chiavi sono obbligatorie tranne `description`. Le soglie
-`mask.*` non hanno un default nel codice: esistono solo qui.
+Tutte le chiavi sono obbligatorie. Le soglie `mask.*` non hanno un
+default nel codice: esistono solo qui.
 
 `maps = 0,2,4` tiene solo quelle mappe, nell'ordine dato; un indice
-ripetuto o fuori range e' un errore.
+fuori range e' un errore.
 
-Chiave sconosciuta, ripetuta o mancante, valore vuoto o non numerico,
-file inesistente: errore con `file:riga`, nessun default silenzioso.
+Chiave sconosciuta (con `file:riga`) o mancante, file inesistente: errore,
+nessun default silenzioso. Se una chiave compare piu' volte vale l'ultima.
 La directory di `output_csv` viene creata se non esiste.
 
 La directory di `output_mask_csv` idem.
@@ -53,9 +52,8 @@ La directory di `output_mask_csv` idem.
 Tutti i percorsi sono relativi alla radice del repository, e l'eseguibile
 si lancia da la'.
 
-`experiment_id` finisce non quotato in ogni riga del CSV, per questo
-ammette solo lettere, cifre, `_`, `-` e `.`: una virgola sposterebbe tutte
-le colonne senza nessun errore.
+`experiment_id` finisce non quotato in ogni riga del CSV: non deve
+contenere virgole.
 
 ## Maschere per coppia (faccia, mappa)
 
@@ -90,8 +88,8 @@ Le LAT negative (FIM non convergito, -1) vengono rifiutate a monte, da
 `simulator/convert/multiLatToPly.py`, prima di scrivere `lat_ply`.
 
 I nomi delle mappe vengono dai commenti `lat_k NOME` dell'header di
-`lat_ply`. Come `experiment_id`, ammettono solo `[A-Za-z0-9_.-]` e devono
-essere distinti: finiscono non quotati nel CSV delle maschere.
+`lat_ply`, che deve averne uno per ogni mappa. Come `experiment_id`
+finiscono non quotati nel CSV delle maschere.
 
 ## CSV di uscita
 
@@ -156,7 +154,7 @@ metrica di valutazione e non rientra mai nella stima.
 
 ## Perche' non JSON
 
-Per leggere undici valori servirebbe vendorizzare un parser JSON. Questo
+Per leggere nove valori servirebbe vendorizzare un parser JSON. Questo
 formato si legge in quindici righe senza dipendenze, ed e' coerente con
 `region_cv/*.csv`, che e' gia' testo piatto. Una dipendenza in meno e' una
 cosa in meno che puo' rompersi fra due anni.
