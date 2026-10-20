@@ -2,7 +2,7 @@
 """
 Analisi del CSV di errori prodotto dallo stadio 6.
 
-Cinque viste, dai CSV di un esperimento (output/<experiment_id>/errors.csv e mask_pairs.csv):
+Cinque viste, dai CSV di un esperimento (output/<esperimento>/errors.csv e mask_pairs.csv):
   1. errore per regione anatomica
   2. bias su CV_L: sistematico o regionale?
   3. le facce non stimabili: dove stanno
@@ -16,9 +16,12 @@ sottoinsieme)), e frazione di area resa non stimabile (k_used < 3).
 Tutte le statistiche sono PESATE PER AREA, non per conteggio di facce:
 facce di dimensione diversa non contano uguale.
 
-I percorsi si configurano nelle costanti in cima al file.
+Uso, dalla radice del repository:
+    python analysis/analisi.py aniso_const
+Le figure vanno in output/<esperimento>/figures/.
 """
 
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -27,12 +30,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# ---------------------------------------------------------------- percorsi
-ROOT     = Path(__file__).resolve().parents[1]            # radice del repository
-CSV_PATH = ROOT / "output" / "aniso_const" / "errors.csv"
-MASK_CSV_PATH = ROOT / "output" / "aniso_const" / "mask_pairs.csv"
-FIG_DIR  = ROOT / "output" / "aniso_const" / "figures"
-# --------------------------------------------------------------------------
+ROOT = Path(__file__).resolve().parents[1]                # radice del repository
 
 REGION_NAMES = {
     1: "corpo LA",
@@ -79,28 +77,35 @@ def fmt_fracs(f):
 
 
 def main():
-    df = pd.read_csv(CSV_PATH, dtype={"experiment_id": str})
+    ap = argparse.ArgumentParser(description="Analisi degli errori di un esperimento.")
+    ap.add_argument("esperimento", help="nome della cartella in output/, es. aniso_const")
+    out_dir = ROOT / "output" / ap.parse_args().esperimento
+    csv_path = out_dir / "errors.csv"
+    mask_csv_path = out_dir / "mask_pairs.csv"
+    fig_dir = out_dir / "figures"
+
+    df = pd.read_csv(csv_path, dtype={"experiment_id": str})
     ids = df["experiment_id"].unique()
     if len(ids) != 1:
         # face_id non e' univoco fra esperimenti: mescolarli darebbe statistiche senza senso
-        raise SystemExit(f"{CSV_PATH}: attesi dati di un solo esperimento, trovati {list(ids)}")
+        raise SystemExit(f"{csv_path}: attesi dati di un solo esperimento, trovati {list(ids)}")
     exp_id = ids[0]
-    FIG_DIR.mkdir(parents=True, exist_ok=True)
+    fig_dir.mkdir(parents=True, exist_ok=True)
     # errori relativi con segno, (stimato - vero) / vero; NaN sulle facce non stimabili
     for cv in ("CV_L", "CV_T"):
         df[f"err_{cv}_rel"] = (df[f"{cv}_est"] - df[f"{cv}_true"]) / df[f"{cv}_true"]
 
-    pairs = pd.read_csv(MASK_CSV_PATH, dtype={"experiment_id": str, "map_name": str})
+    pairs = pd.read_csv(mask_csv_path, dtype={"experiment_id": str, "map_name": str})
     pids = pairs["experiment_id"].unique()
     if len(pids) != 1 or pids[0] != exp_id:
-        raise SystemExit(f"{MASK_CSV_PATH}: attesi dati del solo esperimento {exp_id}, trovati {list(pids)}")
+        raise SystemExit(f"{mask_csv_path}: attesi dati del solo esperimento {exp_id}, trovati {list(pids)}")
     map_names = list(dict.fromkeys(pairs["map_name"]))     # ordine di comparsa = ordine delle mappe
     K = len(map_names)
     per_face = pairs.groupby("face_id").size()
     if set(per_face.index) != set(df["face_id"]) or (per_face != K).any():
-        raise SystemExit(f"{MASK_CSV_PATH}: ogni faccia di {CSV_PATH} deve avere esattamente {K} righe")
+        raise SystemExit(f"{mask_csv_path}: ogni faccia di {csv_path} deve avere esattamente {K} righe")
     if not set(pairs["masked"].unique()) <= set(MASK_LABELS):
-        raise SystemExit(f"{MASK_CSV_PATH}: masked fuori da {sorted(MASK_LABELS)}")
+        raise SystemExit(f"{mask_csv_path}: masked fuori da {sorted(MASK_LABELS)}")
     pairs = pairs.merge(df[["face_id", "area"]], on="face_id", how="left")
     df["n_masked"] = df["face_id"].map(pairs.groupby("face_id")["masked"].sum())
 
@@ -126,7 +131,6 @@ def main():
         print(f"   q{int(q * 100):02d} : {wquantile(est['err_angle'], a, q):8.3f}")
     frac20 = est.loc[est["err_angle"] < 20, "area"].sum() / est["area"].sum()
     print(f"   area entro 20 gradi : {100 * frac20:.2f}%")
-    print("   (Roney 2019, Tab.3, 3 mappe: mediana 10.7-12.1 deg, ~70% entro 20)")
 
     # ------------------------------------------------------- 1. per regione
     rule("1. ERRORE PER REGIONE ANATOMICA")
@@ -165,7 +169,7 @@ def main():
     ax.grid(axis="y", alpha=0.3)
     plt.xticks(rotation=30, ha="right")
     plt.tight_layout()
-    plt.savefig(FIG_DIR / "err_per_regione.png", dpi=140)
+    plt.savefig(fig_dir / "err_per_regione.png", dpi=140)
     plt.close()
 
     # ----------------------------------------------------------- 2. il bias
@@ -199,7 +203,7 @@ def main():
         ax.grid(alpha=0.3)
     fig.suptitle(f"{exp_id}: distribuzione degli errori relativi sulle velocita'")
     plt.tight_layout()
-    plt.savefig(FIG_DIR / "bias_cv.png", dpi=140)
+    plt.savefig(fig_dir / "bias_cv.png", dpi=140)
     plt.close()
 
     # ------------------------------------------------ 3. le non stimabili
@@ -215,12 +219,13 @@ def main():
             n_tot = (df["region_tag"] == tag).sum()
             print(f"  {REGION_NAMES.get(tag, tag):18s} {len(g):5d} "
                   f"su {n_tot:6d}  ({100 * len(g) / n_tot:.2f}%)")
-        print("\nSe si concentrano vicino ai siti di stimolo e sulle linee di\n"
-              "collisione, i criteri degeneri catturano gia' le zone giuste.\n"
-              "Se sono sparse a caso, c'e' altro da capire.")
+        print("\nUna faccia e' non stimabile se dopo la maschera di collisione le\n"
+              "restano meno di 3 mappe, se sigma_min e' sotto soglia (fronti quasi\n"
+              "paralleli) o se lambda_2 <= 0. Ci si aspetta che stiano sulle linee\n"
+              "di collisione dei fronti. Se sono sparse a caso, c'e' altro da capire.")
         bad[["face_id", "region_tag", "area"]].to_csv(
-            FIG_DIR / "facce_non_stimabili.csv", index=False)
-        print(f"\nelenco scritto in {FIG_DIR / 'facce_non_stimabili.csv'}\n"
+            fig_dir / "facce_non_stimabili.csv", index=False)
+        print(f"\nelenco scritto in {fig_dir / 'facce_non_stimabili.csv'}\n"
               "(caricalo in ParaView come selezione per vedere dove stanno)")
 
     # ------------------------------------------- 4. errore vs condizionamento
@@ -258,7 +263,7 @@ def main():
     ax.set_title(f"{exp_id}: errore vs copertura direzionale")
     ax.grid(alpha=0.3, which="both")
     plt.tight_layout()
-    plt.savefig(FIG_DIR / "err_vs_cond.png", dpi=140)
+    plt.savefig(fig_dir / "err_vs_cond.png", dpi=140)
     plt.close()
 
     # ------------------------------------------- 5. r su tenute vs escluse
@@ -301,11 +306,11 @@ def main():
     ax.legend()
     ax.grid(alpha=0.3)
     plt.tight_layout()
-    plt.savefig(FIG_DIR / "r_mask.png", dpi=140)
+    plt.savefig(fig_dir / "r_mask.png", dpi=140)
     plt.close()
 
     rule("FIGURE")
-    for f in sorted(FIG_DIR.glob("*.png")):
+    for f in sorted(fig_dir.glob("*.png")):
         print(f"  {f}")
 
 
