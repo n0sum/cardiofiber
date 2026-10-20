@@ -34,7 +34,9 @@ si saltano. Spazi attorno a `=` e fine riga CRLF sono tollerati.
 | `maps`                      | `all`, oppure indici separati da virgola       |
 | `mask.min_singular_value`   | soglia sul valore singolare minimo del 3x3     |
 | `mask.min_area_vector_norm` | soglia di faccia degenere                      |
+| `mask.collision_angle_deg`  | soglia del criterio di collisione, gradi       |
 | `output_csv`                | dove scrivere gli errori per faccia            |
+| `output_mask_csv`           | dove scrivere le maschere per coppia           |
 
 Tutte le chiavi sono obbligatorie tranne `description`. Le soglie
 `mask.*` non hanno un default nel codice: esistono solo qui.
@@ -46,12 +48,50 @@ Chiave sconosciuta, ripetuta o mancante, valore vuoto o non numerico,
 file inesistente: errore con `file:riga`, nessun default silenzioso.
 La directory di `output_csv` viene creata se non esiste.
 
+La directory di `output_mask_csv` idem.
+
 Tutti i percorsi sono relativi alla radice del repository, e l'eseguibile
 si lancia da la'.
 
 `experiment_id` finisce non quotato in ogni riga del CSV, per questo
 ammette solo lettere, cifre, `_`, `-` e `.`: una virgola sposterebbe tutte
 le colonne senza nessun errore.
+
+## Maschere per coppia (faccia, mappa)
+
+Prima della stima, ogni coppia (faccia `i`, mappa `k`) puo' essere esclusa
+dal sistema lineare della faccia: si toglie la sola riga `k`, le altre
+mappe della faccia restano. Le maschere si calcolano una volta sui
+gradienti grezzi, solo da LAT, gradienti e geometria della mesh: niente
+ground truth, CV vere, fibre o posizioni dei siti. In `main.cpp` vengono
+calcolate prima che la ground truth sia caricata.
+
+L'unico criterio e' la **collisione**: per ogni vicino `j` (adiacenza per
+spigolo) il gradiente di `j` viene aperto nel piano di `i` attorno allo
+spigolo condiviso, e si misura l'angolo pieno, in [0, 180] gradi, con
+quello di `i`. La coppia e' esclusa se il massimo sui vicini supera
+`mask.collision_angle_deg`. Gradiente nullo da' angolo 0, una faccia senza
+vicini da' massimo 0.
+
+Un criterio di stimolo (escludere le coppie attivate entro una soglia dal
+minimo della mappa) e' stato provato e tolto: effetto trascurabile
+sull'errore, e le righe a gradiente quasi nullo vicino al sito sono
+innocue per i minimi quadrati, mentre il filtro toglieva righe utili
+nella LAA.
+
+Una faccia con meno di 3 righe rimaste e' non stimabile.
+
+`mask.collision_angle_deg = 181` non esclude nulla, senza codice speciale:
+l'angolo non supera mai 180. `aniso_const_nomask.conf` la usa come
+regressione: il suo `errors.csv`, tolte `experiment_id` e `k_used`, e'
+identico byte per byte a quello di prima delle maschere.
+
+Le LAT negative (FIM non convergito, -1) vengono rifiutate a monte, da
+`simulator/convert/multiLatToPly.py`, prima di scrivere `lat_ply`.
+
+I nomi delle mappe vengono dai commenti `lat_k NOME` dell'header di
+`lat_ply`. Come `experiment_id`, ammettono solo `[A-Za-z0-9_.-]` e devono
+essere distinti: finiscono non quotati nel CSV delle maschere.
 
 ## CSV di uscita
 
@@ -64,6 +104,7 @@ Una riga per faccia, nessuna aggregazione. Colonne, nell'ordine:
 | `area`          | area della faccia, mm^2                                 |
 | `region_tag`    | tag di regione dalla ground truth                       |
 | `estimable`     | 1 se la faccia supera le maschere, 0 altrimenti         |
+| `k_used`        | mappe rimaste dopo le maschere per coppia               |
 | `cond`          | numero di condizionamento; vuoto se non calcolato       |
 | `CV_L_est`      | CV longitudinale stimata, mm/ms; vuota se non stimabile |
 | `CV_T_est`      | CV trasversale stimata, mm/ms; vuota se non stimabile   |
@@ -89,9 +130,33 @@ df.groupby("experiment_id")["err_angle"].median()
 chiave e' la coppia (`experiment_id`, `face_id`). `analysis/analisi.py`
 lavora su un esperimento alla volta e si ferma se ne trova piu' d'uno.
 
+## CSV delle maschere
+
+`output_mask_csv`, una riga per coppia (faccia, mappa) di ogni mappa
+selezionata:
+
+| colonna         | significato                                                   |
+|-----------------|---------------------------------------------------------------|
+| `experiment_id` | dal `.conf`                                                   |
+| `face_id`       | indice della faccia, come in `errors.csv`                     |
+| `map_name`      | nome del sito di stimolo della mappa                          |
+| `masked`        | 0 tenuta, 1 esclusa per collisione                            |
+| `r`             | `g^T M_true g - 1`, 6 cifre significative                     |
+
+La mappa si identifica per nome, non per indice: `maps` rinumera le
+mappe, e in un esperimento su un sottoinsieme l'indice indicherebbe la
+mappa sbagliata senza dare errore.
+
+`r` usa `M_true = CV_L^2 f f^T + CV_T^2 t t^T`, con `f` la fibra vera
+proiettata sul piano della faccia e normalizzata, `t = n x f`, CV in mm/ms
+da `region_cv_csv`, `g` il gradiente LAT della faccia in ms/mm. Vale 0
+quando la coppia e' coerente con un fronte piano nel tessuto vero. Si
+calcola per tutte le coppie, escluse comprese, solo nell'export: e' una
+metrica di valutazione e non rientra mai nella stima.
+
 ## Perche' non JSON
 
-Per leggere otto valori servirebbe vendorizzare un parser JSON. Questo
+Per leggere undici valori servirebbe vendorizzare un parser JSON. Questo
 formato si legge in quindici righe senza dipendenze, ed e' coerente con
 `region_cv/*.csv`, che e' gia' testo piatto. Una dipendenza in meno e' una
 cosa in meno che puo' rompersi fra due anni.

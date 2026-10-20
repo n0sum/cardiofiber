@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <array>
+#include <cstdint>
 #include <glm/vec3.hpp>
 #include <glm/geometric.hpp>
 #include <glm/vec2.hpp>
@@ -29,6 +31,7 @@ struct FaceAnisotropy {
     vec3 fiber_dir = vec3(0);       // unitario, tangente alla faccia (senza verso)
     float M11 = 0.0f, M12 = 0.0f, M22 = 0.0f;
     float cond = 0.0f;              // sigma_max / sigma_min del sistema
+    int k_used = 0;                 // righe (mappe) non escluse dalle maschere, entrate nel sistema
     bool estimable = false;         // false: faccia lasciata marcata, campi non significativi
 };
 
@@ -45,6 +48,7 @@ struct FaceGroundTruth {
 struct EstimationMasks {
     double minSingularValue;        // sigma_min assoluta di R (fronti quasi paralleli)
     double minAreaVectorNorm;       // su |cross(e1,e2)| (= 2|a|), mm^2
+    double collisionAngleDeg;       // coppia esclusa se l'angolo max col gradiente di un vicino > soglia, gradi
 };
 
 // Velocita' di conduzione vere associate a un tag di regione.
@@ -65,7 +69,10 @@ class Mesh{
     bool imported = false;
     std::vector<Face> faces;
     std::vector<std::vector<float>> vQualities;
+    std::vector<std::string> qualityNames;          // nome del sito di ogni mappa, allineato a vQualities
     std::vector<vec3> vPos;
+    // allineato a faces; slot s = vicino oltre lo spigolo v[s]-v[(s+1)%3], v = {a,b,c}; -1 se di bordo
+    std::vector<std::array<int,3>> faceNeighbors;
     //std::vector<int> vExtEml;
     //std::vector<int> vEml;
     //std::vector<int> vScar;
@@ -77,6 +84,9 @@ class Mesh{
 
 
     std::vector<std::vector<vec3>> fTangents;
+
+    // fMask[k][i]: 1 se la coppia (faccia i, mappa k) e' esclusa per collisione, 0 se tenuta; map-major come vQualities
+    std::vector<std::vector<uint8_t>> fMask;
 
     std::vector<vec3> vNorm;
 
@@ -97,6 +107,7 @@ public:
     void exportAllTangentsAsObj(std::string filename) const;
     bool importMultiLatPly(const std::string filename);
     int mapCount() const { return vQualities.size(); }
+    const std::vector<std::string>& mapNames() const { return qualityNames; }
     // Tiene solo le mappe LAT indicate, nell'ordine dato. Da chiamare prima del calcolo dei gradienti.
     void selectMaps(const std::vector<int>& indices);
     // Ground truth per faccia (elemento face: fx, fy, fz, elem_tag). Richiede la mesh gia' importata.
@@ -116,6 +127,9 @@ public:
     bool exportErrorsAsCsv(const std::string& filename, const std::string& experimentId) const {
         return exportErrorsAsCsv(filename, experimentId, fAniso);
     }
+    // CSV con una riga per coppia (faccia, mappa): maschera (0/1) e r = g^T M_true g - 1.
+    // r e' solo una metrica di valutazione: non viene memorizzato e non rientra nella stima.
+    bool exportMaskPairsAsCsv(const std::string& filename, const std::string& experimentId) const;
 
 
     //processing
@@ -123,8 +137,12 @@ public:
 
     bool updateVertexNormals();
 
-    // Stima per faccia (indipendente dalle altre) di CV_L, CV_T, fiber_dir a partire da fTangents.
+    // Maschere per coppia (faccia, mappa), dai soli LAT, gradienti grezzi e geometria. Calcolate una volta.
     // Richiede updateAllTangetsAsQualitiesGradients() gia' chiamato.
+    bool updateMasks(const EstimationMasks& masks);
+
+    // Stima per faccia (indipendente dalle altre) di CV_L, CV_T, fiber_dir a partire da fTangents,
+    // usando solo le righe con fMask == 0. Richiede updateMasks() gia' chiamato.
     bool updateAnisotropyEstimates(const EstimationMasks& masks);
     const std::vector<FaceAnisotropy>& anisotropy() const { return fAniso; }
 

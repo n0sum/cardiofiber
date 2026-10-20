@@ -9,7 +9,7 @@ struct ExperimentConfig {
     std::string sourcePath;             // il .conf, per i messaggi d'errore
     std::string experimentId;
     std::string description;            // opzionale
-    std::string latPly, groundTruthPly, regionCvCsv, outputCsv;
+    std::string latPly, groundTruthPly, regionCvCsv, outputCsv, outputMaskCsv;
     bool allMaps = false;               // maps = all
     std::vector<int> maps;              // altrimenti gli indici, nell'ordine dato
     int mapsLine = 0;                   // riga di "maps", per l'errore di indice fuori range

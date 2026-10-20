@@ -221,14 +221,65 @@ bool Mesh::updateTangetsAsQualityGradient(int map) {
     return true;
 }
 
+bool Mesh::updateMasks(const EstimationMasks& masks) {
+    const int K = fTangents.size();
+    if (K != vQualities.size()) throw std::runtime_error("updateMasks: gradienti non calcolati");
+    fMask.assign(K, std::vector<uint8_t>(faces.size(), 0));
+
+    for (int k = 0; k < K; ++k) {
+        const std::vector<vec3> &g = fTangents[k];
+        int nColl = 0;
+
+        for (int i = 0; i < faces.size(); ++i) {
+            const Face &face = faces[i];
+            const int vi[3] = {face.a, face.b, face.c};
+
+            // collisione: gradiente del vicino aperto nel piano di i attorno allo spigolo condiviso
+            const dvec3 gi(g[i]);
+            double maxAngle = 0.0;
+            for (int s = 0; s < 3; ++s) {
+                const int j = faceNeighbors[i][s];
+                if (j < 0) continue;
+                const int p0 = vi[s], p1 = vi[(s + 1) % 3], pi = vi[(s + 2) % 3];
+                const int pj = faces[j].a != p0 && faces[j].a != p1 ? faces[j].a
+                             : faces[j].b != p0 && faces[j].b != p1 ? faces[j].b : faces[j].c;
+                const dvec3 x0(vPos[p0]);
+                const dvec3 e = normalize(dvec3(vPos[p1]) - x0);
+                const dvec3 di = dvec3(vPos[pi]) - x0, dj = dvec3(vPos[pj]) - x0;
+                const dvec3 bi = normalize(di - dot(di, e) * e);
+                const dvec3 bj = normalize(dj - dot(dj, e) * e);
+                const dvec3 gj(g[j]);
+                const dvec3 gjp = dot(gj, e) * e - dot(gj, bj) * bi;
+                const double angle = std::atan2(length(cross(gi, gjp)), dot(gi, gjp)) * 180.0 / M_PI;
+                if (std::isnan(angle))
+                    throw std::runtime_error("updateMasks: angolo NaN alla faccia " + std::to_string(i) + ", vicino "
+                                             + std::to_string(j) + ", mappa " + std::to_string(k) + " (" + qualityNames[k] + ")");
+                maxAngle = std::max(maxAngle, angle);
+            }
+            fMask[k][i] = maxAngle > masks.collisionAngleDeg;
+            nColl += fMask[k][i];
+        }
+        std::cout << "updateMasks: " << qualityNames[k] << ": collisione " << nColl
+                  << " su " << faces.size() << " facce\n";
+    }
+    return true;
+}
+
 bool Mesh::updateAnisotropyEstimates(const EstimationMasks& masks) {
     fAniso.assign(faces.size(), FaceAnisotropy());
     const int K = fTangents.size();
-    if (K < kMinGradients) return true;     // tutte le facce restano estimable = false
+    if (fMask.size() != K) throw std::runtime_error("updateAnisotropyEstimates: chiamare prima updateMasks");
 
     for (int i = 0; i < faces.size(); ++i) {
         FaceAnisotropy &fa = fAniso[i];
         const Face &face = faces[i];
+
+        // solo le righe non escluse, in ordine di mappa
+        std::vector<int> used;
+        for (int k = 0; k < K; ++k)
+            if (!fMask[k][i]) used.push_back(k);
+        fa.k_used = used.size();
+        if (fa.k_used < kMinGradients) continue;    // sottodeterminato: estimable = false
 
         // base locale, calcolata una sola volta e usata sia per proiettare sia per ricostruire fiber_dir
         const vec3 e1 = vPos[face.b] - vPos[face.a];
@@ -243,12 +294,12 @@ bool Mesh::updateAnisotropyEstimates(const EstimationMasks& masks) {
         fa.u = u;
         fa.w = w;
 
-        std::vector<std::array<double,3>> R(K);
-        const std::vector<double> b(K, 1.0);
-        for (int k = 0; k < K; ++k) {
-            const vec3 g = fTangents[k][i];
+        std::vector<std::array<double,3>> R(used.size());
+        const std::vector<double> b(used.size(), 1.0);
+        for (int r = 0; r < used.size(); ++r) {
+            const vec3 g = fTangents[used[r]][i];
             const double g1 = dot(g, u), g2 = dot(g, w);
-            R[k] = {g1*g1, 2.0*g1*g2, g2*g2};
+            R[r] = {g1*g1, 2.0*g1*g2, g2*g2};
         }
 
         LsqResult lsq;
@@ -334,26 +385,84 @@ bool Mesh::importMultiLatPly(std::string filename) {
     for (int k = 0; v.hasProperty("lat_" + std::to_string(k)); ++k)
         vQualities.push_back(v.getProperty<float>("lat_" + std::to_string(k)));
 
+    // nomi dei siti dai commenti "lat_k NOME": finiscono non quotati nel CSV delle maschere
+    qualityNames.assign(vQualities.size(), "");
+    for (const std::string &c : plyIn.comments) {
+        const size_t sp = c.find(' ');
+        if (sp == std::string::npos || c.rfind("lat_", 0) != 0) continue;
+        const std::string idx = c.substr(4, sp - 4);
+        if (idx.empty() || !std::all_of(idx.begin(), idx.end(), [](unsigned char ch) { return std::isdigit(ch); })) continue;
+        const int k = std::stoi(idx);
+        if (k >= vQualities.size()) continue;
+        std::string name = c.substr(sp + 1);
+        name.erase(0, name.find_first_not_of(" \t"));
+        name.erase(name.find_last_not_of(" \t\r") + 1);
+        if (!qualityNames[k].empty())
+            throw std::runtime_error("importMultiLatPly: nome di lat_" + idx + " ripetuto nei commenti");
+        if (name.empty() || !std::all_of(name.begin(), name.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '_' || ch == '-' || ch == '.'; }))
+            throw std::runtime_error("importMultiLatPly: nome di lat_" + idx + " '" + name +
+                                     "' non valido: ammessi solo lettere, cifre, '_', '-', '.'");
+        qualityNames[k] = name;
+    }
+    for (int k = 0; k < qualityNames.size(); ++k) {
+        if (qualityNames[k].empty())
+            throw std::runtime_error("importMultiLatPly: manca il commento 'lat_" + std::to_string(k) + " NOME'");
+        for (int j = 0; j < k; ++j)
+            if (qualityNames[j] == qualityNames[k])
+                throw std::runtime_error("importMultiLatPly: lat_" + std::to_string(j) + " e lat_" + std::to_string(k)
+                                         + " hanno lo stesso nome '" + qualityNames[k] + "'");
+    }
+
     const auto& prov_faces = plyIn.getElement("face").getListProperty<int>("vertex_indices");
     faces.reserve(prov_faces.size());
     for (const auto& f : prov_faces) faces.emplace_back(f[0], f[1], f[2]);
 
+    // adiacenza per spigolo: slot s = spigolo v[s]-v[(s+1)%3], terzo vertice v[(s+2)%3]
+    faceNeighbors.assign(faces.size(), {-1, -1, -1});
+    std::unordered_map<uint64_t, std::pair<int,int>> firstSeen;   // spigolo -> (faccia, slot) della prima vista
+    firstSeen.reserve(faces.size() * 2);
+    double edgeLenSum = 0.0;
+    for (int i = 0; i < faces.size(); ++i) {
+        const int vv[3] = {faces[i].a, faces[i].b, faces[i].c};
+        for (int s = 0; s < 3; ++s) {
+            const uint32_t p = vv[s], q = vv[(s + 1) % 3];
+            const uint64_t key = (uint64_t(std::min(p, q)) << 32) | std::max(p, q);
+            const auto [it, inserted] = firstSeen.try_emplace(key, i, s);
+            if (inserted) {
+                edgeLenSum += distance(vPos[p], vPos[q]);
+            } else {
+                faceNeighbors[i][s] = it->second.first;
+                faceNeighbors[it->second.first][it->second.second] = i;
+            }
+        }
+    }
+
     std::cout << "importPlyLat: " << vPos.size() << " vertici, "
-              << faces.size() << " facce, " << vQualities.size() << " mappe\n";
+              << faces.size() << " facce, " << vQualities.size() << " mappe (";
+    for (int k = 0; k < qualityNames.size(); ++k) std::cout << (k ? "," : "") << qualityNames[k];
+    std::cout << "), lunghezza media spigoli " << edgeLenSum / firstSeen.size() << " mm\n";
     return true;
 }
 
 void Mesh::selectMaps(const std::vector<int>& indices) {
     if (!fTangents.empty()) throw std::runtime_error("selectMaps: gradienti gia' calcolati");
+    if (qualityNames.size() != vQualities.size()) throw std::runtime_error("selectMaps: nomi e mappe non allineati");
     std::vector<std::vector<float>> selected;
+    std::vector<std::string> selectedNames;
     selected.reserve(indices.size());
     for (int k : indices) {
         if (k < 0 || k >= static_cast<int>(vQualities.size()))
             throw std::runtime_error("selectMaps: mappa " + std::to_string(k) + " fuori range (" +
                                      std::to_string(vQualities.size()) + " mappe)");
         selected.push_back(vQualities[k]);
+        selectedNames.push_back(qualityNames[k]);
     }
     vQualities = std::move(selected);
+    qualityNames = std::move(selectedNames);
+    // il nome e' la chiave della mappa nel CSV delle maschere: un disallineamento indicherebbe la mappa sbagliata
+    if (qualityNames.size() != vQualities.size())
+        throw std::runtime_error("selectMaps: nomi e mappe non allineati dopo la selezione");
 }
 
 bool Mesh::importPlyGroundTruth(const std::string& filename, const std::map<int, RegionCV>& cvByRegion) {
@@ -483,13 +592,14 @@ bool Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& exp
     std::ofstream out(filename);
     if (!out) throw std::runtime_error("exportErrorsAsCsv: impossibile aprire " + filename);
     out << std::scientific << std::setprecision(9);
-    out << "experiment_id,face_id,area,region_tag,estimable,cond,CV_L_est,CV_T_est,CV_L_true,CV_T_true,"
+    out << "experiment_id,face_id,area,region_tag,estimable,k_used,cond,CV_L_est,CV_T_est,CV_L_true,CV_T_true,"
            "err_angle,err_CV_L_rel,err_CV_T_rel,err_ratio_rel\n";
     for (int i = 0; i < faces.size(); ++i) {
         const FaceAnisotropy &a = est[i];
         const FaceGroundTruth &g = fGT[i];
         const FaceError &e = err[i];
-        out << experimentId << ',' << i << ',' << length(av[i]) / 2.0f << ',' << g.region_tag << ',' << (a.estimable ? 1 : 0) << ',';
+        out << experimentId << ',' << i << ',' << length(av[i]) / 2.0f << ',' << g.region_tag << ',' << (a.estimable ? 1 : 0) << ','
+            << a.k_used << ',';
         if (a.cond > 0.0f) out << a.cond;                       // vuota se non calcolata
         out << ',';
         if (a.estimable) out << a.CV_L << ',' << a.CV_T << ','; else out << ",,";
@@ -497,6 +607,32 @@ bool Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& exp
         if (e.valid) out << e.err_angle << ',' << e.err_CV_L_rel << ',' << e.err_CV_T_rel << ',' << e.err_ratio_rel;
         else out << ",,,";
         out << '\n';
+    }
+    return static_cast<bool>(out);
+}
+
+bool Mesh::exportMaskPairsAsCsv(const std::string& filename, const std::string& experimentId) const {
+    const int K = fTangents.size();
+    if (fMask.size() != K || qualityNames.size() != K || fGT.size() != faces.size())
+        throw std::runtime_error("exportMaskPairsAsCsv: maschere, nomi o ground truth non allineati");
+    std::ofstream out(filename);
+    if (!out) throw std::runtime_error("exportMaskPairsAsCsv: impossibile aprire " + filename);
+    out << std::scientific << std::setprecision(5);                // 6 cifre significative
+    out << "experiment_id,face_id,map_name,masked,r\n";
+    for (int k = 0; k < K; ++k) {
+        for (int i = 0; i < faces.size(); ++i) {
+            // r = g^T M_true g - 1, M_true = CV_L^2 f f^T + CV_T^2 t t^T: solo valutazione, mai nella stima
+            const Face &face = faces[i];
+            const dvec3 n = normalize(dvec3(cross(vPos[face.b] - vPos[face.a], vPos[face.c] - vPos[face.a])));
+            const dvec3 d(fGT[i].fiber_dir);
+            const dvec3 f = normalize(d - dot(d, n) * n);
+            const dvec3 t = cross(n, f);
+            const dvec3 g(fTangents[k][i]);
+            const double gf = dot(g, f), gt = dot(g, t);
+            const double cvL = fGT[i].CV_L, cvT = fGT[i].CV_T;
+            const double r = cvL*cvL*gf*gf + cvT*cvT*gt*gt - 1.0;
+            out << experimentId << ',' << i << ',' << qualityNames[k] << ',' << int(fMask[k][i]) << ',' << r << '\n';
+        }
     }
     return static_cast<bool>(out);
 }

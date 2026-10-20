@@ -58,6 +58,8 @@ def main():
         a = np.asarray(data[name]).ravel()
         if a.size != n_verts:
             raise SystemExit(f"mappa '{name}': {a.size} valori, attesi {n_verts}")
+        if not (a >= 0).all():                         # FIM non convergito: LAT = -1
+            raise SystemExit(f"mappa '{name}': {int((~(a >= 0)).sum())} nodi con LAT negativa o non finita (FIM non convergito)")
         maps.append(a.astype(np.float32))
 
     if tri.min() < 0 or tri.max() >= n_verts:

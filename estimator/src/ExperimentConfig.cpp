@@ -56,7 +56,8 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
 
     const std::set<std::string> known = {
         "experiment_id", "description", "lat_ply", "ground_truth_ply", "region_cv_csv",
-        "maps", "mask.min_singular_value", "mask.min_area_vector_norm", "output_csv"};
+        "maps", "mask.min_singular_value", "mask.min_area_vector_norm",
+        "mask.collision_angle_deg", "output_csv", "output_mask_csv"};
     std::map<std::string, std::pair<std::string, int>> kv;   // chiave -> (valore, riga)
 
     std::string line;
@@ -97,6 +98,7 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
     c.groundTruthPly = kv["ground_truth_ply"].first;
     c.regionCvCsv = kv["region_cv_csv"].first;
     c.outputCsv = kv["output_csv"].first;
+    c.outputMaskCsv = kv["output_mask_csv"].first;
 
     const auto& [maps, mapsLine] = kv["maps"];
     c.mapsLine = mapsLine;
@@ -107,5 +109,7 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
     c.masks.minSingularValue = parseDouble(sv, where(path, svLine));
     const auto& [av, avLine] = kv["mask.min_area_vector_norm"];
     c.masks.minAreaVectorNorm = parseDouble(av, where(path, avLine));
+    const auto& [ca, caLine] = kv["mask.collision_angle_deg"];
+    c.masks.collisionAngleDeg = parseDouble(ca, where(path, caLine));
     return c;
 }
