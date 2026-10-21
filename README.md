@@ -157,7 +157,9 @@ python main.py --mesh /headless/data/ssm_mean_LA.vtk --closed_surface 0 --open_o
 
 `--apex-file` evita la selezione interattiva dell'apice: AugmentA legge
 le coordinate dal CSV e prende il punto della mesh piu' vicino. Il
-percorso e' assoluto perche' la cwd e' `/headless/augmenta`.
+percorso e' assoluto perche' la cwd e' `/headless/augmenta`. Il punto
+piu' vicino alle coordinate del file e' il 1405, quello della run
+originale (verificato).
 
 AugmentA scrive dentro `data/stage1/`: il log
 `ssm_mean_LAAugmentA.log`, la config effettiva
