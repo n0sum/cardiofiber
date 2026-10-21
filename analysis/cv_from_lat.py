@@ -20,8 +20,8 @@ Uso da riga di comando:
     python3 cv_from_lat.py MESH_BASENAME ACT_IGB [--validate CV_L CV_T]
 
 Esempio (verifica della ground truth dello stadio 1):
-    python3 cv_from_lat.py data/augmenta/LA_endo_with_fiber \
-                           run_LSPV/act.igb --validate 1050 525
+    python3 analysis/cv_from_lat.py data/augmenta/LA_endo_with_fiber \
+                           data/reference/sims/aniso_const/run_LSPV/act.igb --validate 1050 525
 
 Uso come modulo:
     from cv_from_lat import read_carp_mesh, read_igb, cv_from_lat

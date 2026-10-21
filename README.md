@@ -267,8 +267,9 @@ python analysis/regional.py aniso_regional aniso_const
 Scenario con CV diverse per regione contro CV uniformi: stimato contro
 imposto per regione, facce interne contro di confine (una faccia e' di
 confine se condivide un vertice con una faccia di tag diverso), modello
-nullo, maschera ai confini e confronto appaiato di `err_angle`. Solo
-tabelle, nessuna figura.
+nullo, maschera ai confini, confronto appaiato di `err_angle` e verifica
+della previsione `f(r) = (r^2 + 1) / (r^2 - 1)` sul rapporto degli errori
+angolari. Solo tabelle, nessuna figura.
 
 ---
 

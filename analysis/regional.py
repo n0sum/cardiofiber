@@ -18,6 +18,13 @@ diverso, altrimenti e' INTERNA. Le viste:
      stesse facce
   5. confronto appaiato con il riferimento sulle facce stimabili in
      entrambi: dq50 e dq90 di err_angle (scenario - riferimento)
+  6. previsione: a parita' di copertura direzionale l'errore angolare
+     scala come f(r) = (r^2 + 1) / (r^2 - 1), r = CV_L / CV_T imposto (la
+     sensibilita' di theta = 0.5*atan2(2*M12, M11 - M22) a un errore su M
+     proporzionale alla sua scala). Per regione, sulle facce interne
+     stimabili in entrambi: rapporto osservato q50 e q90 di err_angle
+     (scenario / riferimento) contro f(r_scen) / f(r_ref), con il cond
+     mediano nei due scenari a controllo della copertura
 
 Tutte le statistiche sono PESATE PER AREA, con wquantile di analisi.py.
 
@@ -146,6 +153,22 @@ def main():
                      "q90": q(s, a, 0.9), "q90_ref": q(sr, ar, 0.9), "dq90": q(s, a, 0.9) - q(sr, ar, 0.9)})
     show(rows)
     print("\nangoli in gradi; dq > 0: lo scenario sbaglia di piu' del riferimento sulle stesse facce.")
+
+    rule("6. PREVISIONE f(r) = (r^2 + 1) / (r^2 - 1)  -  facce interne stimabili in entrambi")
+    f = lambda x: (x ** 2 + 1) / (x ** 2 - 1)
+    rows = []
+    for (name, z, s), (_, _, sr) in zip(groups(df[both]), groups(ref[both])):
+        if z != "interne" or name == "tutte":
+            continue
+        r_s = wmed(s["CV_L_true"] / s["CV_T_true"], s["area"])
+        r_r = wmed(sr["CV_L_true"] / sr["CV_T_true"], sr["area"])
+        a, ar = s["area"].to_numpy(), sr["area"].to_numpy()
+        q = lambda x, aa, p: wquantile(x["err_angle"].to_numpy(), aa, p)
+        rows.append({"regione": name, "r": r_s, "r_ref": r_r, "previsto": f(r_s) / f(r_r),
+                     "oss_q50": q(s, a, 0.5) / q(sr, ar, 0.5), "oss_q90": q(s, a, 0.9) / q(sr, ar, 0.9),
+                     "cond_scen": wmed(s["cond"], s["area"]), "cond_ref": wmed(sr["cond"], sr["area"])})
+    show(rows)
+    print("\noss = err_angle scenario / riferimento sulle stesse facce; cond = mediana pesata per area.")
 
 
 if __name__ == "__main__":
