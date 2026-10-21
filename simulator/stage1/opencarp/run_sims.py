@@ -7,10 +7,12 @@ arrotondato all'intero piu' vicino. I siti si definiscono per indice di
 cella, non per coordinate: le colonne x_um, y_um, z_um del CSV non si
 leggono (allo stadio 2 gli indici restano, le coordinate cambiano).
 
-Le run finiscono in data/reference/sims/run_NOME/.
+Le run finiscono in data/reference/sims/run_NOME/. openCARP non ha un'opzione
+per sovrascrivere una run esistente, quindi la cartella si cancella prima.
 """
 
 import csv
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -35,6 +37,7 @@ def main():
         name = row["name"]
         p = np.round(pts[tri[int(row["cell_id"])]].mean(0)).astype(np.int64)
         print(f"{name}: cella {row['cell_id']}  stimolo {p} um", flush=True)
+        shutil.rmtree(SIMS_DIR / f"run_{name}", ignore_errors=True)
         t0 = time.time()
         subprocess.run([HERE / "run_eik.sh", str(MESH_UM), name, *map(str, p)],
                        cwd=SIMS_DIR, check=True)
