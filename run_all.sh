@@ -15,10 +15,12 @@ if [ ! -f data/augmenta/LA_endo_with_fiber.pts ]; then
 fi
 
 python simulator/stage1/opencarp/mm_to_um.py      # -> data/reference/LA_um.*
-python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv   # -> data/reference/sims/aniso_const/run_*/act.igb
-python simulator/convert/multiLatToPly.py aniso_const                             # -> data/reference/LA_LAT_aniso_const.ply
-python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_regional.csv
-python simulator/convert/multiLatToPly.py aniso_regional                          # -> data/reference/LA_LAT_aniso_regional.ply
+# scenari: experiments/region_cv/SCENARIO.csv
+SCENARIOS="aniso_const aniso_regional aniso_r110 aniso_r125 aniso_r150 aniso_r250 aniso_r300 aniso_const_half"
+for s in $SCENARIOS; do
+    python simulator/stage1/opencarp/run_sims.py experiments/region_cv/$s.csv   # -> data/reference/sims/$s/run_*/act.igb
+    python simulator/convert/multiLatToPly.py $s                              # -> data/reference/LA_LAT_$s.ply
+done
 python simulator/convert/fibersToPly.py           # -> data/reference/LA_fibers_gt.ply
 
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
@@ -26,6 +28,9 @@ cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const.conf
 ./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
 ./estimator/build/Tesi0 experiments/aniso_regional.conf
+for s in aniso_r110 aniso_r125 aniso_r150 aniso_r250 aniso_r300 aniso_const_half; do
+    ./estimator/build/Tesi0 experiments/$s.conf
+done
 
 python analysis/analisi.py aniso_const
 python analysis/regional.py aniso_regional aniso_const
