@@ -5,7 +5,13 @@ Esporta mesh + N mappe LAT in un PLY binario leggibile con happly.
 Le LAT diventano proprieta' per-vertice chiamate lat_0, lat_1, ... ; i nomi dei
 siti di pacing finiscono nei commenti dell'header.
 
-Le mappe sono gli act.igb delle run openCARP, nell'ordine di pacing_sites.csv.
+Le mappe sono gli act.igb delle run openCARP di uno scenario, nell'ordine di
+pacing_sites.csv. Lo scenario e' il nome del CSV delle CV (es. aniso_const):
+legge data/reference/sims/SCENARIO/run_NOME/act.igb e scrive
+data/reference/LA_LAT_SCENARIO.ply.
+
+Uso, dalla radice del repository:
+    python simulator/convert/multiLatToPly.py aniso_const
 
 Legge le fonti CANONICHE (file testuali openCARP + act.igb), non i .vtk:
 i .vtk passati per pyvista possono attraversare filtri che riordinano le celle
@@ -18,6 +24,7 @@ Lato C++:
 """
 
 import csv
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -26,8 +33,7 @@ import numpy as np
 ROOT      = Path(__file__).resolve().parents[2]           # radice del repository
 MESH_BASE = ROOT / "data" / "augmenta"  / "LA_endo_with_fiber"   # senza estensione
 SITES     = ROOT / "simulator" / "stage1" / "pacing_sites.csv"
-SIMS_DIR  = ROOT / "data" / "reference" / "sims"                  # run_NOME/act.igb
-OUT_PATH  = ROOT / "data" / "reference" / "LA_LAT.ply"
+SIMS_DIR  = ROOT / "data" / "reference" / "sims"                  # SCENARIO/run_NOME/act.igb
 # --------------------------------------------------------------------------
 
 
@@ -57,6 +63,9 @@ def read_igb(path, n):
 
 
 def main():
+    scenario = sys.argv[1]
+    sims_dir = SIMS_DIR / scenario
+    out_path = ROOT / "data" / "reference" / f"LA_LAT_{scenario}.ply"
     mesh_base = str(MESH_BASE)
 
     pts = read_pts(mesh_base + ".pts")
@@ -66,7 +75,7 @@ def main():
     names = [row["name"] for row in csv.DictReader(open(SITES))]
     maps = []
     for name in names:
-        a = read_igb(SIMS_DIR / f"run_{name}" / "act.igb", n_verts)
+        a = read_igb(sims_dir / f"run_{name}" / "act.igb", n_verts)
         if not (a >= 0).all():                         # FIM non convergito: LAT = -1
             raise SystemExit(f"mappa '{name}': {int((~(a >= 0)).sum())} nodi con LAT negativa o non finita (FIM non convergito)")
         maps.append(a)
@@ -94,7 +103,7 @@ def main():
 
     header = ["ply", "format binary_little_endian 1.0"]
     header.append(f"comment mesh {mesh_base}")
-    header.append(f"comment lat source {SIMS_DIR}/run_*/act.igb")
+    header.append(f"comment lat source {sims_dir}/run_*/act.igb")
     for k, name in enumerate(names):
         header.append(f"comment lat_{k} {name}")
     header.append(f"element vertex {n_verts}")
@@ -103,13 +112,13 @@ def main():
     header.append("property list uchar int vertex_indices")
     header.append("end_header")
 
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUT_PATH, "wb") as f:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "wb") as f:
         f.write(("\n".join(header) + "\n").encode("ascii"))
         vrec.tofile(f)
         frec.tofile(f)
 
-    print(f"scritto {OUT_PATH}")
+    print(f"scritto {out_path}")
     print(f"  vertici {n_verts}   facce {n_faces}   mappe {len(maps)}")
     for k, name in enumerate(names):
         print(f"    lat_{k} = {name}")

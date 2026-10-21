@@ -22,7 +22,7 @@ Mappe LAT
   Simulatore : openCARP v19.0, modalita' eikonale pura (dream.solve 0, FIM)
   Parametri  : dream.fim.tol 0.001, max_iter 1e7 - comando in run_eik.sh
   Siti (6)   : LSPV, RSPV, LAA, body_A, body_B, body_C - coordinate in pacing_sites.csv
-  Output     : data/reference/sims/run_NOME/act.igb, da simulator/stage1/opencarp/run_sims.py
+  Output     : data/reference/sims/aniso_const/run_NOME/act.igb, da simulator/stage1/opencarp/run_sims.py
                (LAT_all.npz non e' piu' usato: resta solo come riferimento storico
                in data/ e nel backup)
 
