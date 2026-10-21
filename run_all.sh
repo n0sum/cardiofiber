@@ -34,3 +34,4 @@ done
 
 python analysis/analisi.py aniso_const
 python analysis/regional.py aniso_regional aniso_const
+python analysis/ratio.py
