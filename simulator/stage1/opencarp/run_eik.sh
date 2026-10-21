@@ -1,8 +1,8 @@
 #!/bin/bash
-# uso: ./run_eik.sh NOME X_um Y_um Z_um
-NAME=$1; X=$2; Y=$3; Z=$4
+# uso: ./run_eik.sh MESH_um NOME X_um Y_um Z_um   (MESH_um senza estensione)
+MESH=$1; NAME=$2; X=$3; Y=$4; Z=$5
 openCARP \
- -meshname LA_um -simID run_$NAME \
+ -meshname $MESH -simID run_$NAME \
  -dream.solve 0 -dream.fim.tol 0.001 -dream.fim.max_iter 10000000 \
  -dream.output.atfile act -tend 500 \
  -num_phys_regions 1 \
