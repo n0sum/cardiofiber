@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
 #
-# Ricostruisce data/ e output/ a partire dal codice e dalla
-# configurazione versionati.
+# Ricostruisce data/reference/ e output/ a partire dall'uscita di AugmentA
+# (data/augmenta/). Va lanciato con l'ambiente conda tesi attivo.
 #
-# NOTA: il passo AugmentA non e' automatizzabile (Docker + sessione
-# desktop). Lo script si ferma e lo chiede, invece di fingere.
+# I passi prima di AugmentA (make_mean, split_atria, extract_la) e AugmentA
+# stesso (Docker + sessione desktop) restano a mano: vedi README passi 1-2.
 #
 set -euo pipefail
 cd "$(dirname "$0")"
 
-mkdir -p data/{external,augmenta,reference,clinical} output
+if [ ! -f data/augmenta/LA_endo_with_fiber.pts ]; then
+    echo "manca data/augmenta/LA_endo_with_fiber.*: serve prima AugmentA, a mano (README passo 2)"
+    exit 1
+fi
 
-# TODO: riempire mano a mano che gli stadi vengono consolidati.
-#   1. verifica checksums.sha256 su data/external
-#   2. simulator/stage1/*.py
-#   3. STOP: AugmentA a mano, vedi README passo 2
-#   4. simulator/stage1/opencarp/run_eik.sh
-#   5. simulator/convert/*.py
-#   6. estimator, su ogni experiments/*.conf
-#   7. analysis/analisi.py
+python simulator/stage1/opencarp/mm_to_um.py      # -> data/reference/LA_um.*
+python simulator/stage1/opencarp/run_sims.py      # -> data/reference/sims/run_*/act.igb
+python simulator/convert/multiLatToPly.py         # -> data/reference/LA_LAT.ply
+python simulator/convert/fibersToPly.py           # -> data/reference/LA_fibers_gt.ply
 
-echo "non ancora implementato: vedi i passi 1-6 del README"
-exit 1
+cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
+cmake --build estimator/build
+./estimator/build/Tesi0 experiments/aniso_const.conf
+./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
+
+python analysis/analisi.py aniso_const
