@@ -150,6 +150,29 @@ quando la coppia e' coerente con un fronte piano nel tessuto vero. Si
 calcola per tutte le coppie, escluse comprese, solo nell'export: e' una
 metrica di valutazione e non rientra mai nella stima.
 
+## Sottoinsiemi di mappe
+
+`subsets.py` scrive un `.conf` per ogni sottoinsieme di k >= 3 delle mappe
+di `lat_ply` (con sei mappe: 20 + 15 + 6 + 1 = 42). Ogni file e'
+`aniso_const.conf` con cambiati solo `experiment_id`, `maps`, `output_csv`
+e `output_mask_csv`. L'ID e' `sub_` con gli indici uniti da trattino, es.
+`sub_0-2-4`: niente virgole, perche' `experiment_id` finisce non quotato
+nel CSV. Le mappe si leggono dai commenti `lat_k NOME` dell'header.
+
+Per rigenerare i 42 risultati e il confronto:
+
+```bash
+python experiments/subsets.py
+./estimator/build/Tesi0 output/subsets/confs/*.conf
+python analysis/subsets.py
+```
+
+I `.conf` non sono in git: derivano in modo deterministico da
+`aniso_const.conf` e dall'header di `lat_ply`, quindi la ricetta e' lo
+script. Stanno in `output/subsets/confs/`, accanto ai risultati, e
+`output/` e' ignorato. `sub_0-1-2-3-4-5` deve dare lo stesso
+`errors.csv` di `aniso_const`, tolta `experiment_id`.
+
 ## Perche' non JSON
 
 Per leggere nove valori servirebbe vendorizzare un parser JSON. Questo
