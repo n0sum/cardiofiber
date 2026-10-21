@@ -15,8 +15,8 @@ if [ ! -f data/augmenta/LA_endo_with_fiber.pts ]; then
 fi
 
 python simulator/stage1/opencarp/mm_to_um.py      # -> data/reference/LA_um.*
-python simulator/stage1/opencarp/run_sims.py      # -> data/reference/sims/run_*/act.igb
-python simulator/convert/multiLatToPly.py         # -> data/reference/LA_LAT.ply
+python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv   # -> data/reference/sims/aniso_const/run_*/act.igb
+python simulator/convert/multiLatToPly.py aniso_const                             # -> data/reference/LA_LAT_aniso_const.ply
 python simulator/convert/fibersToPly.py           # -> data/reference/LA_fibers_gt.ply
 
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release

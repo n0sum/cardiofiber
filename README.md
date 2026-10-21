@@ -202,7 +202,8 @@ attivo, esegue i passi 3-6 in ordine a partire da `data/augmenta/`. Se
 
 ```bash
 python simulator/stage1/opencarp/mm_to_um.py   # -> data/reference/LA_um.{pts,elem,lon}
-python simulator/stage1/opencarp/run_sims.py   # -> data/reference/sims/run_NOME/act.igb
+python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv
+                                               # -> data/reference/sims/aniso_const/run_NOME/act.igb
 ```
 
 `mm_to_um.py` moltiplica per 1000 le sole coordinate di
@@ -215,14 +216,21 @@ sito di pacing ciascuno, ognuna in pochi decimi di secondo. Il punto di
 stimolo e' il baricentro della cella `cell_id` sulla mesh in um,
 arrotondato all'intero; le colonne di coordinate del CSV sono solo
 informative. L'ordine delle righe del CSV e' l'ordine delle mappe
-`lat_k` in `LA_LAT.ply`. Modalita' eikonale pura: le velocita' si
-impongono direttamente con `gregion[].dream.vel_l / vel_t / vel_n`, in
+`lat_k` in `LA_LAT_SCENARIO.ply`. Modalita' eikonale pura: le velocita'
+si impongono direttamente con `gregion[].dream.vel_l / vel_t / vel_n`, in
 **mm/s**.
+
+Le CV hanno una sola fonte, il CSV dello scenario in
+`experiments/region_cv/` (`region_tag,CV_L,CV_T`, in **mm/ms**): il nome
+dello scenario e' il nome del CSV. `run_sims.py` ne costruisce una
+gregion per tag, con `vel_l = CV_L*1000` e `vel_t = vel_n = CV_T*1000`;
+e' l'unico punto della conversione. `run_eik.sh` non contiene velocita'.
+Lo stesso CSV va in `region_cv_csv` del `.conf`.
 
 ### 4. Conversione in PLY
 
 ```bash
-python simulator/convert/multiLatToPly.py    # -> data/reference/LA_LAT.ply
+python simulator/convert/multiLatToPly.py aniso_const   # -> data/reference/LA_LAT_aniso_const.ply
 python simulator/convert/fibersToPly.py      # -> data/reference/LA_fibers_gt.ply
 ```
 
