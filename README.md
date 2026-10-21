@@ -55,8 +55,9 @@ experiments/
 
 data/
   external/           SSM scaricato
+  stage1/             intermedi dello stadio 1 e cartella di lavoro di AugmentA
   reference/          mesh di riferimento, fibre, mappe LAT
-  augmenta/           output AugmentA
+  augmenta/           output AugmentA, ingresso di run_all.sh
   clinical/           mesh cliniche, NON redistribuibili
 
 output/               CSV di errori per faccia, figure
@@ -95,44 +96,101 @@ output/               CSV di errori per faccia, figure
 
 SSM biatriale del KIT-IBT (Nagel et al., CC-BY).
 
-<!-- DA COMPLETARE: URL esatto di download e versione del dataset -->
+Zenodo: <https://zenodo.org/records/4309958>, file
+`biatrial_model_completeFit.h5` (md5 `96d8bf64bc943dcba71e3702a552fa75`).
 
-Scaricare `biatrial_model_completeFit.h5` in `data/external/`, poi
-verificare:
+Scaricarlo in `data/external/`, poi verificare dalla radice:
 
 ```bash
+md5sum data/external/biatrial_model_completeFit.h5
 cd data/external && sha256sum -c ../../checksums.sha256
 ```
 
 ### 2. Geometria di riferimento e fibre
 
-```bash
-conda activate tesi
-python simulator/stage1/make_mean.py      # forma media dall'SSM
-python simulator/stage1/split_atria.py    # separa LA da RA
-python simulator/stage1/extract_la.py     # LA, 21811 vertici / 43270 triangoli
-```
-
-Poi le fibre, **a mano**, nel container AugmentA:
-
-<!-- DA COMPLETARE: comando docker run esatto, e dove montare la mesh
-     dentro il container -->
+Dalla radice del repository, con l'ambiente `tesi` attivo:
 
 ```bash
-bash simulator/stage1/run_augmenta.sh
+python simulator/stage1/inspect_h5.py     # opzionale: struttura dell'h5
+python simulator/stage1/make_mean.py      # -> data/stage1/ssm_mean_surface.vtk
+python simulator/stage1/split_atria.py    # -> data/stage1/component_{0,1}.vtk
+python simulator/stage1/extract_la.py     # -> data/stage1/ssm_mean_LA.vtk, 21811 vertici / 43270 triangoli
 ```
 
-Flag usati: `--closed_surface 0 --open_orifices 0 --atrium LA
---SSM_fitting 0 --resample_input 0 --normals_outside 1 --add_bridges 0
---MRI 0 --ofmt vtk`.
+`extract_la.py` riscrive anche `simulator/stage1/la_vertex_mask.npy`
+(gli indici SSM dei vertici della LA, tracciato in git): dopo il lancio
+`git status` deve restare pulito. La LA e' la componente con le 4 vene
+polmonari (`LA_REGION` in `extract_la.py`).
 
-L'apice dell'auricola e' stato scelto a mano, con la selezione
-interattiva di AugmentA (punto 1405). AugmentA ha poi scritto le sue
-coordinate in `ssm_mean_LA_apexes.csv`. Per rifare la run senza
-selezione interattiva si aggiunge `--apex-file ssm_mean_LA_apexes.csv`.
+Poi le fibre, **a mano**, nel container AugmentA. Si usa il
+`docker/Docker-compose.yml` del repository di AugmentA
+(<https://github.com/KIT-IBT/AugmentA>), che monta il repository di
+AugmentA in `/headless/augmenta`. Il suo volume dei dati va puntato su
+`data/stage1/`:
+
+```yaml
+    volumes:
+      - /percorso/assoluto/di/cardiofiber/data/stage1:/headless/data
+      - ../:/headless/augmenta
+```
+
+Immagine (una volta) e avvio, dalla cartella `docker/` di AugmentA:
+
+```bash
+docker build -f Dockerfile-x64 -t augmenta_container_image .
+docker compose -f Docker-compose.yml up
+```
+
+Dalla radice di questo repository si mette l'apice accanto alla mesh:
+
+```bash
+cp simulator/stage1/ssm_mean_LA_apexes.csv data/stage1/
+```
+
+Desktop del container: VNC su `localhost:5901`, oppure il browser su
+`localhost:6901/?password`. In un terminale del container:
+
+```bash
+cd /headless/augmenta
+python main.py --mesh /headless/data/ssm_mean_LA.vtk --closed_surface 0 --open_orifices 0 --atrium LA --SSM_fitting 0 --resample_input 0 --normals_outside 1 --add_bridges 0 --MRI 0 --ofmt vtk --apex-file /headless/data/ssm_mean_LA_apexes.csv
+```
+
+`--apex-file` evita la selezione interattiva dell'apice: AugmentA legge
+le coordinate dal CSV e prende il punto della mesh piu' vicino. Il
+percorso e' assoluto perche' la cwd e' `/headless/augmenta`.
+
+AugmentA scrive dentro `data/stage1/`: il log
+`ssm_mean_LAAugmentA.log`, la config effettiva
+`_configs/augmenta_config.yaml`, gli anelli in `ssm_mean_LA_surf/` e le
+fibre in `ssm_mean_LA_fibers/result_LA/`. In `data/augmenta/` vanno
+copiati i file che legge `run_all.sh`, piu' log e config:
+
+```bash
+mkdir -p data/augmenta
+cp data/stage1/ssm_mean_LA_fibers/result_LA/LA_endo_with_fiber.{pts,elem,lon} data/augmenta/
+cp data/stage1/ssm_mean_LAAugmentA.log data/stage1/_configs/augmenta_config.yaml data/augmenta/
+```
+
+`data/augmenta/` contiene l'uscita gia' verificata: per controllare una
+nuova run si confronta con quella, senza sovrascriverla.
+
+La run originale e' del 2026-08-20, su un'altra macchina, con l'apice
+dell'auricola scelto a mano con la selezione interattiva (punto 1405);
+le sue coordinate sono in `simulator/stage1/ssm_mean_LA_apexes.csv`. Il
+comando esatto di quella run e' in `simulator/stage1/run_augmenta.sh`.
+Il suo ingresso `ssm_mean_LA.vtk` non e' stato conservato, ma si
+rigenera identico: la mesh prodotta da `extract_la.py` coincide con
+`data/augmenta/LA_endo_with_fiber.*` vertice per vertice (scarto
+massimo 5e-9 mm, arrotondamento del `.pts`) e triangolo per triangolo,
+nello stesso ordine.
 
 `--resample_input 0` e' essenziale: mantiene l'output nello spazio di
 indici dell'SSM, quindi non serve nessuna proiezione a valle.
+
+**Verso dei triangoli.** AugmentA inverte il verso di tutti i triangoli
+rispetto all'SSM: `elem == ssm_tri[:, ::-1]`. La connettivita' di
+riferimento per tutte le forme e' `LA_endo_with_fiber.elem`, mai
+`representer/cells`.
 
 ### 3. Mesh in micrometri e mappe LAT
 
