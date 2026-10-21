@@ -227,6 +227,20 @@ gregion per tag, con `vel_l = CV_L*1000` e `vel_t = vel_n = CV_T*1000`;
 e' l'unico punto della conversione. `run_eik.sh` non contiene velocita'.
 Lo stesso CSV va in `region_cv_csv` del `.conf`.
 
+Scenari in `experiments/region_cv/`, uno per `.conf` di `experiments/`:
+
+| scenario           | CV                                                        |
+|--------------------|-----------------------------------------------------------|
+| `aniso_const`      | uniformi, CV_L 1.05, CV_T 0.525 mm/ms (r = 2)               |
+| `aniso_regional`   | per regione anatomica, costrutto di test                  |
+| `aniso_rNNN`       | uniformi, CV_L 1.05, r = NNN/100 (110, 125, 150, 250, 300)  |
+| `aniso_const_half` | uniformi, CV dimezzate: controllo di scala, LAT doppie    |
+
+`run_all.sh` li simula e stima tutti. Con r = 1.25, 1.5 e 3 tre run
+arrivano a `dream.fim.max_iter` senza svuotare la lista attiva del FIM,
+ma `act.igb` e' lo stesso con 1e6, 3e6 e 1e7 iterazioni: la soluzione e'
+ferma in float32, costa solo un paio di minuti a run.
+
 ### 4. Conversione in PLY
 
 ```bash
@@ -268,8 +282,18 @@ Scenario con CV diverse per regione contro CV uniformi: stimato contro
 imposto per regione, facce interne contro di confine (una faccia e' di
 confine se condivide un vertice con una faccia di tag diverso), modello
 nullo, maschera ai confini, confronto appaiato di `err_angle` e verifica
-della previsione `f(r) = (r^2 + 1) / (r^2 - 1)` sul rapporto degli errori
-angolari. Solo tabelle, nessuna figura.
+della previsione `f(r) = (r^2 + 1) / (r^2 - 1)` (e `g(r) = r^2 / (r^2 - 1)`)
+sul rapporto degli errori angolari, profilo per anello di facce dal
+confine. Solo tabelle, nessuna figura.
+
+```bash
+python analysis/ratio.py
+```
+
+Scansione in r a CV uniforme contro `aniso_const`: errore angolare,
+rapporti osservati contro `f(r)/f(2)` e `g(r)/g(2)`, cond e cond
+direzionale (`analysis/dircond.py`), area non stimabile. Mesh intera e
+corpo. Una tabella.
 
 ---
 

@@ -23,8 +23,15 @@ diverso, altrimenti e' INTERNA. Le viste:
      sensibilita' di theta = 0.5*atan2(2*M12, M11 - M22) a un errore su M
      proporzionale alla sua scala). Per regione, sulle facce interne
      stimabili in entrambi: rapporto osservato q50 e q90 di err_angle
-     (scenario / riferimento) contro f(r_scen) / f(r_ref), con il cond
-     mediano nei due scenari a controllo della copertura
+     (scenario / riferimento) contro f(r_scen) / f(r_ref) e contro
+     g(r_scen) / g(r_ref), g = r^2 / (r^2 - 1), con il cond e il cond
+     direzionale (dircond.py) mediani nei due scenari a controllo della
+     copertura
+  7. profilo per anello: anello 1 = facce di confine, anello k = facce che
+     condividono un vertice con l'anello k-1 e non sono gia' assegnate
+     (BFS). Classi 1..6 e >6 (la patch di Roney e' circa 6 anelli). Per
+     classe: area, dq50 e dq90 appaiati di err_angle, rapporto dei cond
+     direzionali mediani scenario / riferimento. Mesh intera, corpo, LAA
 
 Tutte le statistiche sono PESATE PER AREA, con wquantile di analisi.py.
 
@@ -38,9 +45,11 @@ import numpy as np
 import pandas as pd
 
 from analisi import REGION_NAMES, ROOT, rule, wquantile
+from dircond import face_conds
 
 ELEM = ROOT / "data" / "augmenta" / "LA_endo_with_fiber.elem"
 ZONES = ("tutte", "interne", "confine")
+MAX_RING = 6                                              # classi 1..6 e >6
 
 
 def border_faces():
@@ -52,7 +61,21 @@ def border_faces():
     for j in range(3):
         np.minimum.at(vmin, tri[:, j], tag)
         np.maximum.at(vmax, tri[:, j], tag)
-    return (vmin[tri] != vmax[tri]).any(1), tag
+    return (vmin[tri] != vmax[tri]).any(1), tag, tri
+
+
+def rings(tri, border):
+    """Anello per faccia: 1 = confine, k = vertice condiviso con l'anello k-1 (BFS). 0 = mai raggiunta."""
+    ring = np.where(border, 1, 0)
+    k = 1
+    while True:
+        touched = np.zeros(tri.max() + 1, bool)
+        touched[tri[ring == k].ravel()] = True
+        new = (ring == 0) & touched[tri].any(1)
+        if not new.any():
+            return ring
+        k += 1
+        ring[new] = k
 
 
 def load(exp, border, tag):
@@ -60,6 +83,7 @@ def load(exp, border, tag):
     if not (df["region_tag"].to_numpy() == tag).all():
         raise SystemExit(f"{exp}: region_tag di errors.csv diverso dai tag di {ELEM}")
     df["border"] = border
+    df["cond_dir"] = face_conds(exp)[1]
     mp = pd.read_csv(ROOT / "output" / exp / "mask_pairs.csv")
     mp = mp.merge(df[["face_id", "area", "region_tag", "border"]], on="face_id")
     return df, mp
@@ -91,7 +115,7 @@ def main():
     ap.add_argument("reference")
     args = ap.parse_args()
 
-    border, tag = border_faces()
+    border, tag, tri = border_faces()
     df, mp = load(args.scenario, border, tag)
     ref, mpr = load(args.reference, border, tag)
 
@@ -154,8 +178,9 @@ def main():
     show(rows)
     print("\nangoli in gradi; dq > 0: lo scenario sbaglia di piu' del riferimento sulle stesse facce.")
 
-    rule("6. PREVISIONE f(r) = (r^2 + 1) / (r^2 - 1)  -  facce interne stimabili in entrambi")
+    rule("6. PREVISIONE f(r) = (r^2 + 1) / (r^2 - 1), g(r) = r^2 / (r^2 - 1)  -  facce interne stimabili in entrambi")
     f = lambda x: (x ** 2 + 1) / (x ** 2 - 1)
+    g = lambda x: x ** 2 / (x ** 2 - 1)
     rows = []
     for (name, z, s), (_, _, sr) in zip(groups(df[both]), groups(ref[both])):
         if z != "interne" or name == "tutte":
@@ -164,11 +189,30 @@ def main():
         r_r = wmed(sr["CV_L_true"] / sr["CV_T_true"], sr["area"])
         a, ar = s["area"].to_numpy(), sr["area"].to_numpy()
         q = lambda x, aa, p: wquantile(x["err_angle"].to_numpy(), aa, p)
-        rows.append({"regione": name, "r": r_s, "r_ref": r_r, "previsto": f(r_s) / f(r_r),
+        rows.append({"regione": name, "r": r_s, "r_ref": r_r, "f/f_ref": f(r_s) / f(r_r), "g/g_ref": g(r_s) / g(r_r),
                      "oss_q50": q(s, a, 0.5) / q(sr, ar, 0.5), "oss_q90": q(s, a, 0.9) / q(sr, ar, 0.9),
-                     "cond_scen": wmed(s["cond"], s["area"]), "cond_ref": wmed(sr["cond"], sr["area"])})
+                     "cond_scen": wmed(s["cond"], s["area"]), "cond_ref": wmed(sr["cond"], sr["area"]),
+                     "cdir_scen": wmed(s["cond_dir"], s["area"]), "cdir_ref": wmed(sr["cond_dir"], sr["area"])})
     show(rows)
-    print("\noss = err_angle scenario / riferimento sulle stesse facce; cond = mediana pesata per area.")
+    print("\noss = err_angle scenario / riferimento sulle stesse facce; cond, cdir = mediane pesate per area.")
+
+    rule("7. PROFILO PER ANELLO DAL CONFINE  -  confronto appaiato, facce stimabili in entrambi")
+    ring = rings(tri, border)
+    cls = np.where((ring == 0) | (ring > MAX_RING), MAX_RING + 1, ring)
+    rows = []
+    for name, t in (("tutte", None), (REGION_NAMES[1], 1), (REGION_NAMES[7], 7)):
+        in_t = np.ones(len(df), bool) if t is None else (tag == t)
+        for c in range(1, MAX_RING + 2):
+            sel = in_t & (cls == c)
+            s, sr = df[sel & both], ref[sel & both]
+            a = s["area"].to_numpy()
+            q = lambda x, p: wquantile(x["err_angle"].to_numpy(), a, p)
+            rows.append({"regione": name, "anello": str(c) if c <= MAX_RING else f">{MAX_RING}",
+                         "area_%": 100 * df["area"][sel].sum() / df["area"][in_t].sum(),
+                         "dq50": q(s, 0.5) - q(sr, 0.5), "dq90": q(s, 0.9) - q(sr, 0.9),
+                         "cdir_scen/ref": wmed(s["cond_dir"], s["area"]) / wmed(sr["cond_dir"], sr["area"])})
+    show(rows)
+    print(f"\narea_%: quota dell'area della regione; dq in gradi ({args.scenario} - {args.reference}).")
 
 
 if __name__ == "__main__":

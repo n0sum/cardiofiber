@@ -103,12 +103,21 @@ Una riga per faccia, nessuna aggregazione. Colonne, nell'ordine:
 | `region_tag`    | tag di regione dalla ground truth                       |
 | `estimable`     | 1 se la faccia supera le maschere, 0 altrimenti         |
 | `k_used`        | mappe rimaste dopo le maschere per coppia               |
-| `cond`          | numero di condizionamento; vuoto se non calcolato       |
+| `cond`          | numero di condizionamento (vedi sotto); vuoto se non calcolato |
 | `CV_L_est`      | CV longitudinale stimata, mm/ms; vuota se non stimabile |
 | `CV_T_est`      | CV trasversale stimata, mm/ms; vuota se non stimabile   |
 | `CV_L_true`     | CV longitudinale vera, mm/ms                            |
 | `CV_T_true`     | CV trasversale vera, mm/ms                              |
 | `err_angle`     | errore angolare di fibra, gradi; vuoto se non stimabile |
+
+`cond` e' `sigma_max / sigma_min` del sistema della faccia, una riga per
+mappa tenuta: `(g1^2, sqrt(2) g1 g2, g2^2)`, con `(g1, g2)` il gradiente
+LAT nella base locale della faccia. Il `sqrt(2)` e' l'embedding di
+Frobenius delle matrici simmetriche: una rotazione della base agisce come
+rotazione 3x3, quindi `cond` e la soglia `mask.min_singular_value` non
+dipendono dall'ordine dei vertici. `analysis/dircond.py` ricalcola lo
+stesso `cond` in Python e, con i gradienti normalizzati, il cond
+direzionale, che misura la sola copertura direzionale.
 
 Gli errori relativi sulle velocita' non stanno nel CSV: li calcola
 `analysis/analisi.py` da `CV_*_est` e `CV_*_true`, con segno,
