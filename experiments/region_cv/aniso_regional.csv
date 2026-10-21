@@ -1,0 +1,16 @@
+# CV per regione, in mm/ms. Unica fonte delle CV dello scenario: run_sims.py ne
+# costruisce le gregion di openCARP (una per tag) convertendo in mm/s (x1000,
+# es. 1.05 -> 1050 mm/s).
+# Costrutto di test, non anatomia: un campo costante a tratti sui tag
+# anatomici, con rapporti CV_L/CV_T volutamente piu' larghi della
+# letteratura (da 1.25 a 2.5), per verificare che lo stimatore ritrovi
+# valori diversi in ogni regione.
+# tag: 1=corpo LA  2=anello mitralico  3=LIPV  4=LSPV  5=RIPV  6=RSPV  7=LAA
+region_tag,CV_L,CV_T
+1,1.05,0.525
+2,0.90,0.60
+3,0.75,0.50
+4,1.20,0.48
+5,0.85,0.34
+6,1.15,0.92
+7,0.70,0.35
