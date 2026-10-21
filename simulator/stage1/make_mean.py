@@ -1,7 +1,12 @@
-import h5py, glob, numpy as np, meshio
+import h5py, numpy as np, meshio
+from pathlib import Path
 
-path = glob.glob("*.h5")[0]
-with h5py.File(path, "r") as f:
+ROOT = Path(__file__).resolve().parents[2]                # radice del repository
+H5   = ROOT / "data" / "external" / "biatrial_model_completeFit.h5"
+OUT  = ROOT / "data" / "stage1"
+
+OUT.mkdir(parents=True, exist_ok=True)
+with h5py.File(H5, "r") as f:
     mean  = f["model/mean"][()].reshape(-1)     # (3N,)
     pref  = f["representer/points"][()]          # (3, N)
     cells = f["representer/cells"][()]           # (3, M)
@@ -19,5 +24,5 @@ pts = cand1 if d1 <= d2 else cand2
 tris = cells.T.astype(np.int64)
 print(f"vertici: {N}   triangoli: {tris.shape[0]}")
 
-meshio.write_points_cells("ssm_mean_surface.vtk", pts, [("triangle", tris)])
-print("scritto: ssm_mean_surface.vtk")
+meshio.write_points_cells(OUT / "ssm_mean_surface.vtk", pts, [("triangle", tris)])
+print(f"scritto: {OUT / 'ssm_mean_surface.vtk'}")
