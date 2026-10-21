@@ -1,0 +1,13 @@
+# CV uniformi su tutte le regioni, in mm/ms: r = 2.00, CV dimezzate: controllo di scala, LAT esattamente doppie.
+# Scansione in r = CV_L / CV_T a CV uniforme (r = 2.0 e' aniso_const). Unica fonte
+# delle CV dello scenario: run_sims.py ne costruisce le gregion di openCARP (una per
+# tag) convertendo in mm/s (x1000).
+# tag: 1=corpo LA  2=anello mitralico  3=LIPV  4=LSPV  5=RIPV  6=RSPV  7=LAA
+region_tag,CV_L,CV_T
+1,0.525,0.2625
+2,0.525,0.2625
+3,0.525,0.2625
+4,0.525,0.2625
+5,0.525,0.2625
+6,0.525,0.2625
+7,0.525,0.2625
