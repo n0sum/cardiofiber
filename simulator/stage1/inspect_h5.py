@@ -1,6 +1,8 @@
 import h5py, numpy as np
+from pathlib import Path
 
-path = "biatrial_model_completeFit.h5"   # <-- metti qui il nome esatto del tuo file .h5
+ROOT = Path(__file__).resolve().parents[2]                # radice del repository
+H5   = ROOT / "data" / "external" / "biatrial_model_completeFit.h5"
 
 def walk(name, obj):
     if isinstance(obj, h5py.Dataset):
@@ -8,5 +10,5 @@ def walk(name, obj):
     else:
         print(f"[group]   {name}")
 
-with h5py.File(path, "r") as f:
+with h5py.File(H5, "r") as f:
     f.visititems(walk)
