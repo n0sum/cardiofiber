@@ -89,7 +89,7 @@ output/               CSV di errori per faccia, figure
 
 > La catena ha **un anello non automatizzabile**: AugmentA gira solo in un
 > container Docker con sessione desktop. Il passo 2 va eseguito a mano.
-> Tutto il resto e' scriptato.
+> I passi 3-6 li esegue `./run_all.sh`.
 
 ### 1. Statistical shape model
 
@@ -134,16 +134,30 @@ selezione interattiva si aggiunge `--apex-file ssm_mean_LA_apexes.csv`.
 `--resample_input 0` e' essenziale: mantiene l'output nello spazio di
 indici dell'SSM, quindi non serve nessuna proiezione a valle.
 
-### 3. Mappe LAT
+### 3. Mesh in micrometri e mappe LAT
+
+Da qui in poi tutto e' scriptato: `./run_all.sh`, con l'ambiente `tesi`
+attivo, esegue i passi 3-6 in ordine a partire da `data/augmenta/`. Se
+`data/augmenta/` non c'e' si ferma: serve prima AugmentA.
 
 ```bash
-bash simulator/stage1/opencarp/run_eik.sh
+python simulator/stage1/opencarp/mm_to_um.py   # -> data/reference/LA_um.{pts,elem,lon}
+python simulator/stage1/opencarp/run_sims.py   # -> data/reference/sims/run_NOME/act.igb
 ```
 
-Sei run eikonali (FIM), un sito di pacing ciascuno, definiti in
-`simulator/stage1/pacing_sites.csv`. Modalita' eikonale pura: le velocita'
-si impongono direttamente con `gregion[].dream.vel_l / vel_t / vel_n`,
-in **mm/s**.
+`mm_to_um.py` moltiplica per 1000 le sole coordinate di
+`LA_endo_with_fiber.pts` (vedi *Unita' di misura*); `.elem` e `.lon` si
+copiano invariati.
+
+`run_sims.py` lancia `simulator/stage1/opencarp/run_eik.sh` una volta per
+riga di `simulator/stage1/pacing_sites.csv`: sei run eikonali (FIM), un
+sito di pacing ciascuno, ognuna in pochi decimi di secondo. Il punto di
+stimolo e' il baricentro della cella `cell_id` sulla mesh in um,
+arrotondato all'intero; le colonne di coordinate del CSV sono solo
+informative. L'ordine delle righe del CSV e' l'ordine delle mappe
+`lat_k` in `LA_LAT.ply`. Modalita' eikonale pura: le velocita' si
+impongono direttamente con `gregion[].dream.vel_l / vel_t / vel_n`, in
+**mm/s**.
 
 ### 4. Conversione in PLY
 
@@ -152,7 +166,7 @@ python simulator/convert/multiLatToPly.py    # -> data/reference/LA_LAT.ply
 python simulator/convert/fibersToPly.py      # -> data/reference/LA_fibers_gt.ply
 ```
 
-Entrambi leggono le fonti canoniche (`.pts`, `.elem`, `.lon`, `.npz`) e
+Entrambi leggono le fonti canoniche (`.pts`, `.elem`, `.lon`, `act.igb`) e
 **non** i `.vtk`: passare per pyvista puo' attraversare filtri che
 riordinano le celle, e un disallineamento faccia-fibra non produce nessun
 errore visibile, solo un campo di fibre sbagliato.
@@ -163,6 +177,7 @@ errore visibile, solo un campo di fibre sbagliato.
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const.conf
+./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
 ```
 
 L'eseguibile si lancia **dalla radice del repository**: i percorsi nei file
