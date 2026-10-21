@@ -213,14 +213,16 @@ void Mesh::updateAnisotropyEstimates(const EstimationMasks& masks) {
         for (int r = 0; r < used.size(); ++r) {
             const vec3 g = fTangents[used[r]][i];
             const double g1 = dot(g, u), g2 = dot(g, w);
-            R[r] = {g1*g1, 2.0*g1*g2, g2*g2};
+            // embedding di Frobenius (g1^2, sqrt(2) g1 g2, g2^2): una rotazione della base locale
+            // agisce come rotazione 3x3, quindi valori singolari e cond non dipendono dalla scelta di u
+            R[r] = {g1*g1, std::sqrt(2.0)*g1*g2, g2*g2};
         }
 
         LsqResult lsq;
         if (!svdLeastSquares(std::move(R), b, masks.minSingularValue, lsq)) continue;
         fa.cond = static_cast<float>(lsq.sigmaMax / lsq.sigmaMin);
 
-        const double M11 = lsq.m[0], M12 = lsq.m[1], M22 = lsq.m[2];
+        const double M11 = lsq.m[0], M12 = lsq.m[1] / std::sqrt(2.0), M22 = lsq.m[2];
         const double somma = M11 + M22;
         const double differenza = std::sqrt((M11 - M22)*(M11 - M22) + (2.0*M12)*(2.0*M12));
         const double lambda1 = (somma + differenza) / 2.0;   // CV_L^2
