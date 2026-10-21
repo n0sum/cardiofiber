@@ -28,3 +28,4 @@ cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_regional.conf
 
 python analysis/analisi.py aniso_const
+python analysis/regional.py aniso_regional aniso_const

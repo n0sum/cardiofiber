@@ -260,6 +260,16 @@ python analysis/analisi.py aniso_const
 L'argomento e' il nome della cartella in `output/`; le figure vanno in
 `output/aniso_const/figures/`.
 
+```bash
+python analysis/regional.py aniso_regional aniso_const
+```
+
+Scenario con CV diverse per regione contro CV uniformi: stimato contro
+imposto per regione, facce interne contro di confine (una faccia e' di
+confine se condivide un vertice con una faccia di tag diverso), modello
+nullo, maschera ai confini e confronto appaiato di `err_angle`. Solo
+tabelle, nessuna figura.
+
 ---
 
 ## Esperimenti
