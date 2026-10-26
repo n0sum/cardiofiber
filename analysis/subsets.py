@@ -40,11 +40,11 @@ CAUSE_LABELS = {"nonstim_mask_%": "k_used < 3 (maschere)",
 
 def load():
     """Per sottoinsieme: (indici, nomi dei siti, errors.csv). Ordine (k, indici)."""
+    sites = pd.read_csv(ROOT / "simulator" / "stage1" / "pacing_sites.csv")["name"]   # riga k = mappa k
     runs = []
     for d in OUT_DIR.glob("sub_*"):
         idx = tuple(int(i) for i in d.name[4:].split("-"))
-        names = list(dict.fromkeys(pd.read_csv(d / "mask_pairs.csv", usecols=["map_name"],
-                                               dtype=str)["map_name"]))
+        names = [sites[i] for i in idx]
         df = pd.read_csv(d / "errors.csv", usecols=["face_id", "area", "estimable", "k_used",
                                                     "cond", "err_angle"]).set_index("face_id")
         df["cond"] = df["cond"].replace([np.inf, -np.inf], np.nan)

@@ -30,7 +30,7 @@ riceve nessun risultato: li ricostruisce. Questo e' il test della
 riproducibilita'.
 
 L'unico ingresso che non si rigenera e' lo statistical shape model:
-si scarica, e `checksums.sha256` ne fissa il contenuto esatto.
+si scarica, e md5 e sha256 nel passo 1 ne fissano il contenuto esatto.
 
 ### Albero
 
@@ -97,13 +97,14 @@ output/               CSV di errori per faccia, figure
 SSM biatriale del KIT-IBT (Nagel et al., CC-BY).
 
 Zenodo: <https://zenodo.org/records/4309958>, file
-`biatrial_model_completeFit.h5` (md5 `96d8bf64bc943dcba71e3702a552fa75`).
+`biatrial_model_completeFit.h5` (md5 `96d8bf64bc943dcba71e3702a552fa75`,
+sha256 `d4b3a90f2b9c6db79bb225954a4e5eeaed59f44916e5a93935dde20458da63b8`).
 
 Scaricarlo in `data/external/`, poi verificare dalla radice:
 
 ```bash
 md5sum data/external/biatrial_model_completeFit.h5
-cd data/external && sha256sum -c ../../checksums.sha256
+sha256sum data/external/biatrial_model_completeFit.h5
 ```
 
 ### 2. Geometria di riferimento e fibre
@@ -111,7 +112,6 @@ cd data/external && sha256sum -c ../../checksums.sha256
 Dalla radice del repository, con l'ambiente `tesi` attivo:
 
 ```bash
-python simulator/stage1/inspect_h5.py     # opzionale: struttura dell'h5
 python simulator/stage1/make_mean.py      # -> data/stage1/ssm_mean_surface.vtk
 python simulator/stage1/split_atria.py    # -> data/stage1/component_{0,1}.vtk
 python simulator/stage1/extract_la.py     # -> data/stage1/ssm_mean_LA.vtk, 21811 vertici / 43270 triangoli
@@ -178,8 +178,9 @@ nuova run si confronta con quella, senza sovrascriverla.
 
 La run originale e' del 2026-08-20, su un'altra macchina, con l'apice
 dell'auricola scelto a mano con la selezione interattiva (punto 1405);
-le sue coordinate sono in `simulator/stage1/ssm_mean_LA_apexes.csv`. Il
-comando esatto di quella run e' in `simulator/stage1/run_augmenta.sh`.
+le sue coordinate sono in `simulator/stage1/ssm_mean_LA_apexes.csv`. La
+run originale ha usato lo stesso comando senza `--apex-file`, con l'apice
+cliccato a mano sul vertice 1405.
 Il suo ingresso `ssm_mean_LA.vtk` non e' stato conservato, ma si
 rigenera identico: la mesh prodotta da `extract_la.py` coincide con
 `data/augmenta/LA_endo_with_fiber.*` vertice per vertice (scarto
@@ -233,13 +234,8 @@ Scenari in `experiments/region_cv/`, uno per `.conf` di `experiments/`:
 |--------------------|-----------------------------------------------------------|
 | `aniso_const`      | uniformi, CV_L 1.05, CV_T 0.525 mm/ms (r = 2)               |
 | `aniso_regional`   | per regione anatomica, costrutto di test                  |
-| `aniso_rNNN`       | uniformi, CV_L 1.05, r = NNN/100 (110, 125, 150, 250, 300)  |
-| `aniso_const_half` | uniformi, CV dimezzate: controllo di scala, LAT doppie    |
 
-`run_all.sh` li simula e stima tutti. Con r = 1.25, 1.5 e 3 tre run
-arrivano a `dream.fim.max_iter` senza svuotare la lista attiva del FIM,
-ma `act.igb` e' lo stesso con 1e6, 3e6 e 1e7 iterazioni: la soluzione e'
-ferma in float32, costa solo un paio di minuti a run.
+`run_all.sh` li simula e stima tutti e due.
 
 ### 4. Conversione in PLY
 
@@ -269,31 +265,15 @@ di configurazione sono relativi a essa.
 
 ```bash
 python analysis/analisi.py aniso_const
+python analysis/analisi.py aniso_const_nomask
+python analysis/analisi.py aniso_regional
 ```
 
-L'argomento e' il nome della cartella in `output/`; le figure vanno in
-`output/aniso_const/figures/`.
-
-```bash
-python analysis/regional.py aniso_regional aniso_const
-```
-
-Scenario con CV diverse per regione contro CV uniformi: stimato contro
-imposto per regione, facce interne contro di confine (una faccia e' di
-confine se condivide un vertice con una faccia di tag diverso), modello
-nullo, maschera ai confini, confronto appaiato di `err_angle` e verifica
-della previsione `f(r) = (r^2 + 1) / (r^2 - 1)` (e `g(r) = r^2 / (r^2 - 1)`)
-sul rapporto degli errori angolari, profilo per anello di facce dal
-confine. Solo tabelle, nessuna figura.
-
-```bash
-python analysis/ratio.py
-```
-
-Scansione in r a CV uniforme contro `aniso_const`: errore angolare,
-rapporti osservati contro `f(r)/f(2)` e `g(r)/g(2)`, cond e cond
-direzionale (`analysis/dircond.py`), area non stimabile. Mesh intera e
-corpo. Una tabella.
+L'argomento e' il nome della cartella in `output/`. Solo tabelle, pesate
+per area: riepilogo, per regione (CV stimate e vere, errore angolare),
+facce di confine contro interne (una faccia e' di confine se condivide un
+vertice con una faccia di tag diverso), errore angolare per fasce di
+`cond`. Vale solo per esperimenti con `maps = all`.
 
 ---
 
