@@ -8,7 +8,7 @@
 struct ExperimentConfig {
     std::string sourcePath;             // il .conf, per i messaggi d'errore
     std::string experimentId;
-    std::string latPly, groundTruthPly, regionCvCsv, outputCsv, outputMaskCsv;
+    std::string latPly, groundTruthPly, regionCvCsv, outputCsv;
     bool allMaps = false;               // maps = all
     std::vector<int> maps;              // altrimenti gli indici, nell'ordine dato
     EstimationMasks masks{};

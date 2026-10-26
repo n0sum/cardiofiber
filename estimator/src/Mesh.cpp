@@ -416,32 +416,6 @@ void Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& exp
     if (!out) throw std::runtime_error("exportErrorsAsCsv: errore di scrittura su " + filename);
 }
 
-void Mesh::exportMaskPairsAsCsv(const std::string& filename, const std::string& experimentId) const {
-    const int K = fTangents.size();
-    if (fMask.size() != K || qualityNames.size() != K || fGT.size() != faces.size())
-        throw std::runtime_error("exportMaskPairsAsCsv: maschere, nomi o ground truth non allineati");
-    std::ofstream out(filename);
-    if (!out) throw std::runtime_error("exportMaskPairsAsCsv: impossibile aprire " + filename);
-    out << std::scientific << std::setprecision(5);                // 6 cifre significative
-    out << "experiment_id,face_id,map_name,masked,r\n";
-    for (int k = 0; k < K; ++k) {
-        for (int i = 0; i < faces.size(); ++i) {
-            // r = g^T M_true g - 1, M_true = CV_L^2 f f^T + CV_T^2 t t^T: solo valutazione, mai nella stima
-            const Face &face = faces[i];
-            const dvec3 n = normalize(dvec3(cross(vPos[face.b] - vPos[face.a], vPos[face.c] - vPos[face.a])));
-            const dvec3 f(fGT[i].fiber_dir);                       // gia' proiettata e normalizzata all'import
-            const dvec3 t = cross(n, f);
-            const dvec3 g(fTangents[k][i]);
-            const double gf = dot(g, f), gt = dot(g, t);
-            const double cvL = fGT[i].CV_L, cvT = fGT[i].CV_T;
-            const double r = cvL*cvL*gf*gf + cvT*cvT*gt*gt - 1.0;
-            out << experimentId << ',' << i << ',' << qualityNames[k] << ',' << int(fMask[k][i]) << ',' << r << '\n';
-        }
-    }
-    out.close();
-    if (!out) throw std::runtime_error("exportMaskPairsAsCsv: errore di scrittura su " + filename);
-}
-
 void Mesh::exportAsPly(const std::string &filename) const {
     std::vector<float> x(vPos.size()),y(vPos.size()),z(vPos.size()),nx(vPos.size()),ny(vPos.size()),nz(vPos.size());
     for (int i = 0; i < vPos.size(); i++) {

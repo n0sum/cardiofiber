@@ -27,14 +27,10 @@ namespace {
         m.updateAnisotropyEstimates(cfg.masks);
         m.importPlyGroundTruth(cfg.groundTruthPly, Mesh::importRegionCV(cfg.regionCvCsv));
 
-        for (const std::string& p : {cfg.outputCsv, cfg.outputMaskCsv}) {
-            const std::filesystem::path out(p);
-            if (out.has_parent_path()) std::filesystem::create_directories(out.parent_path());
-        }
+        const std::filesystem::path out(cfg.outputCsv);
+        if (out.has_parent_path()) std::filesystem::create_directories(out.parent_path());
         m.exportErrorsAsCsv(cfg.outputCsv, cfg.experimentId);
         std::cout << "   scritto " << cfg.outputCsv << "\n";
-        m.exportMaskPairsAsCsv(cfg.outputMaskCsv, cfg.experimentId);
-        std::cout << "   scritto " << cfg.outputMaskCsv << "\n";
     }
 }
 

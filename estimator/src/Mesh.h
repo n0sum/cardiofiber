@@ -102,9 +102,6 @@ public:
     void exportErrorsAsCsv(const std::string& filename, const std::string& experimentId) const {
         exportErrorsAsCsv(filename, experimentId, fAniso);
     }
-    // CSV con una riga per coppia (faccia, mappa): maschera (0/1) e r = g^T M_true g - 1.
-    // r e' solo una metrica di valutazione: non viene memorizzato e non rientra nella stima.
-    void exportMaskPairsAsCsv(const std::string& filename, const std::string& experimentId) const;
 
 
     //processing

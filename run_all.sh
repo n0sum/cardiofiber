@@ -16,7 +16,7 @@ fi
 
 python simulator/stage1/opencarp/mm_to_um.py      # -> data/reference/LA_um.*
 # scenari: experiments/region_cv/SCENARIO.csv
-SCENARIOS="aniso_const aniso_regional aniso_r110 aniso_r125 aniso_r150 aniso_r250 aniso_r300 aniso_const_half"
+SCENARIOS="aniso_const aniso_regional"
 for s in $SCENARIOS; do
     python simulator/stage1/opencarp/run_sims.py experiments/region_cv/$s.csv   # -> data/reference/sims/$s/run_*/act.igb
     python simulator/convert/multiLatToPly.py $s                              # -> data/reference/LA_LAT_$s.ply
@@ -28,10 +28,7 @@ cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const.conf
 ./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
 ./estimator/build/Tesi0 experiments/aniso_regional.conf
-for s in aniso_r110 aniso_r125 aniso_r150 aniso_r250 aniso_r300 aniso_const_half; do
-    ./estimator/build/Tesi0 experiments/$s.conf
-done
 
 python analysis/analisi.py aniso_const
-python analysis/regional.py aniso_regional aniso_const
-python analysis/ratio.py
+python analysis/analisi.py aniso_const_nomask
+python analysis/analisi.py aniso_regional

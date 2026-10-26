@@ -3,7 +3,7 @@
 Genera un .conf per ogni sottoinsieme di k >= 3 mappe LAT (passo 2).
 
 Modello: experiments/aniso_const.conf. Si cambiano solo experiment_id,
-maps, output_csv e output_mask_csv; ingressi e soglie restano quelli.
+maps e output_csv; ingressi e soglie restano quelli.
 Le mappe e il loro ordine vengono dai commenti "lat_k NOME" dell'header
 di lat_ply. Nessuna ground truth.
 
@@ -56,8 +56,7 @@ def main():
             exp_id = "sub_" + "-".join(map(str, subset))
             new = {"experiment_id": exp_id,
                    "maps": ",".join(map(str, subset)),
-                   "output_csv": f"output/subsets/{exp_id}/errors.csv",
-                   "output_mask_csv": f"output/subsets/{exp_id}/mask_pairs.csv"}
+                   "output_csv": f"output/subsets/{exp_id}/errors.csv"}
             out = []
             for line in lines:
                 key, sep, _ = line.partition("=")

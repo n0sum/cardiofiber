@@ -35,9 +35,8 @@ dell'esperimento sta nei commenti in testa al file.
 | `mask.min_singular_value`   | soglia sul valore singolare minimo del 3x3     |
 | `mask.collision_angle_deg`  | soglia del criterio di collisione, gradi       |
 | `output_csv`                | dove scrivere gli errori per faccia            |
-| `output_mask_csv`           | dove scrivere le maschere per coppia           |
 
-Tutte le chiavi sono obbligatorie. Le soglie `mask.*` non hanno un
+Tutte le 8 chiavi sono obbligatorie. Le soglie `mask.*` non hanno un
 default nel codice: esistono solo qui.
 
 `maps = 0,2,4` tiene solo quelle mappe, nell'ordine dato; un indice
@@ -46,8 +45,6 @@ fuori range e' un errore.
 Chiave sconosciuta (con `file:riga`) o mancante, file inesistente: errore,
 nessun default silenzioso. Se una chiave compare piu' volte vale l'ultima.
 La directory di `output_csv` viene creata se non esiste.
-
-La directory di `output_mask_csv` idem.
 
 Tutti i percorsi sono relativi alla radice del repository, e l'eseguibile
 si lancia da la'.
@@ -88,8 +85,7 @@ Le LAT negative (FIM non convergito, -1) vengono rifiutate a monte, da
 `simulator/convert/multiLatToPly.py`, prima di scrivere `lat_ply`.
 
 I nomi delle mappe vengono dai commenti `lat_k NOME` dell'header di
-`lat_ply`, che deve averne uno per ogni mappa. Come `experiment_id`
-finiscono non quotati nel CSV delle maschere.
+`lat_ply`, che deve averne uno per ogni mappa.
 
 ## CSV di uscita
 
@@ -115,13 +111,7 @@ mappa tenuta: `(g1^2, sqrt(2) g1 g2, g2^2)`, con `(g1, g2)` il gradiente
 LAT nella base locale della faccia. Il `sqrt(2)` e' l'embedding di
 Frobenius delle matrici simmetriche: una rotazione della base agisce come
 rotazione 3x3, quindi `cond` e la soglia `mask.min_singular_value` non
-dipendono dall'ordine dei vertici. `analysis/dircond.py` ricalcola lo
-stesso `cond` in Python e, con i gradienti normalizzati, il cond
-direzionale, che misura la sola copertura direzionale.
-
-Gli errori relativi sulle velocita' non stanno nel CSV: li calcola
-`analysis/analisi.py` da `CV_*_est` e `CV_*_true`, con segno,
-`(stimato - vero) / vero`.
+dipendono dall'ordine dei vertici.
 
 `experiment_id` sta su ogni riga perche' i CSV di esperimenti diversi si
 possano concatenare e raggruppare senza perdere la provenienza:
@@ -133,38 +123,14 @@ df.groupby("experiment_id")["err_angle"].median()
 
 `face_id` e' univoco solo dentro un esperimento: su dati concatenati la
 chiave e' la coppia (`experiment_id`, `face_id`). `analysis/analisi.py`
-lavora su un esperimento alla volta e si ferma se ne trova piu' d'uno.
-
-## CSV delle maschere
-
-`output_mask_csv`, una riga per coppia (faccia, mappa) di ogni mappa
-selezionata:
-
-| colonna         | significato                                                   |
-|-----------------|---------------------------------------------------------------|
-| `experiment_id` | dal `.conf`                                                   |
-| `face_id`       | indice della faccia, come in `errors.csv`                     |
-| `map_name`      | nome del sito di stimolo della mappa                          |
-| `masked`        | 0 tenuta, 1 esclusa per collisione                            |
-| `r`             | `g^T M_true g - 1`, 6 cifre significative                     |
-
-La mappa si identifica per nome, non per indice: `maps` rinumera le
-mappe, e in un esperimento su un sottoinsieme l'indice indicherebbe la
-mappa sbagliata senza dare errore.
-
-`r` usa `M_true = CV_L^2 f f^T + CV_T^2 t t^T`, con `f` la fibra vera
-proiettata sul piano della faccia e normalizzata, `t = n x f`, CV in mm/ms
-da `region_cv_csv`, `g` il gradiente LAT della faccia in ms/mm. Vale 0
-quando la coppia e' coerente con un fronte piano nel tessuto vero. Si
-calcola per tutte le coppie, escluse comprese, solo nell'export: e' una
-metrica di valutazione e non rientra mai nella stima.
+lavora su un esperimento alla volta.
 
 ## Sottoinsiemi di mappe
 
 `subsets.py` scrive un `.conf` per ogni sottoinsieme di k >= 3 delle mappe
 di `lat_ply` (con sei mappe: 20 + 15 + 6 + 1 = 42). Ogni file e'
-`aniso_const.conf` con cambiati solo `experiment_id`, `maps`, `output_csv`
-e `output_mask_csv`. L'ID e' `sub_` con gli indici uniti da trattino, es.
+`aniso_const.conf` con cambiati solo `experiment_id`, `maps` e
+`output_csv`. L'ID e' `sub_` con gli indici uniti da trattino, es.
 `sub_0-2-4`: niente virgole, perche' `experiment_id` finisce non quotato
 nel CSV. Le mappe si leggono dai commenti `lat_k NOME` dell'header.
 
@@ -184,7 +150,7 @@ script. Stanno in `output/subsets/confs/`, accanto ai risultati, e
 
 ## Perche' non JSON
 
-Per leggere nove valori servirebbe vendorizzare un parser JSON. Questo
+Per leggere otto valori servirebbe vendorizzare un parser JSON. Questo
 formato si legge in quindici righe senza dipendenze, ed e' coerente con
 `region_cv/*.csv`, che e' gia' testo piatto. Una dipendenza in meno e' una
 cosa in meno che puo' rompersi fra due anni.
