@@ -3,7 +3,7 @@
 Passo 2: confronto fra i sottoinsiemi di mappe (k = 3..6).
 
 Legge output/subsets/sub_*/errors.csv (generati da experiments/subsets.py)
-e risponde a: quante mappe servono, e quali siti contano.
+e risponde a: quante mappe servono, e quali mappe contano.
 
 Confronto APPAIATO contro k = 6: per ogni sottoinsieme S, con F_S le sue
 facce stimabili, l'errore di S su F_S si confronta con l'errore di k = 6
@@ -27,9 +27,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from analisi import MIN_GRADIENTS, ROOT, rule, wquantile
+from analisi import ROOT, rule, wquantile
 
 OUT_DIR = ROOT / "output" / "subsets"
+MIN_GRADIENTS = 3                                         # kMinGradients in Mesh.cpp
 FIG_DIR = OUT_DIR / "figures"
 K_COLORS = {3: "#86b6ef", 4: "#3987e5", 5: "#1c5cab", 6: "#0d366b"}   # rampa ordinale, un solo tono
 POINT_COLOR = "#2a78d6"
@@ -39,16 +40,14 @@ CAUSE_LABELS = {"nonstim_mask_%": "k_used < 3 (maschere)",
 
 
 def load():
-    """Per sottoinsieme: (indici, nomi dei siti, errors.csv). Ordine (k, indici)."""
-    sites = pd.read_csv(ROOT / "simulator" / "stage1" / "pacing_sites.csv")["name"]   # riga k = mappa k
+    """Per sottoinsieme: (indici, errors.csv). Ordine (k, indici)."""
     runs = []
     for d in OUT_DIR.glob("sub_*"):
         idx = tuple(int(i) for i in d.name[4:].split("-"))
-        names = [sites[i] for i in idx]
         df = pd.read_csv(d / "errors.csv", usecols=["face_id", "area", "estimable", "k_used",
                                                     "cond", "err_angle"]).set_index("face_id")
         df["cond"] = df["cond"].replace([np.inf, -np.inf], np.nan)
-        runs.append((idx, names, df))
+        runs.append((idx, df))
     return sorted(runs, key=lambda r: (len(r[0]), r[0]))
 
 
@@ -60,7 +59,7 @@ def strip(ax, s, col, ylabel, title):
         ax.scatter(x, g[col], s=36, color=POINT_COLOR, edgecolor="white", lw=1, zorder=3)
         if len(g) > 1:
             for xi, r, va in ((x[0], g.iloc[0], "top"), (x[-1], g.iloc[-1], "bottom")):
-                ax.annotate(r["siti"], (xi, r[col]), xytext=(6, -4 if va == "top" else 4),
+                ax.annotate(r["mappe"], (xi, r[col]), xytext=(6, -4 if va == "top" else 4),
                             textcoords="offset points", fontsize=7.5, color="#444", va=va)
     ax.axhline(0, color="#888", lw=1, ls="--", zorder=1)
     ax.set_xticks(sorted(s["k"].unique()))
@@ -72,13 +71,13 @@ def strip(ax, s, col, ylabel, title):
 
 def main():
     runs = load()
-    ref = runs[-1][2]                                     # sub_0-1-2-3-4-5
+    ref = runs[-1][1]                                     # sub_0-1-2-3-4-5
     area = ref["area"]
     area_tot = area.sum()
     pct = lambda m: 100 * area[m].sum() / area_tot
 
     rows, n_out = [], {}
-    for idx, names, df in runs:
+    for idx, df in runs:
         F = df["estimable"] == 1
         F_ref = F & (ref["estimable"] == 1)               # F_S senza le non stimabili a k = 6: S e k = 6 su queste facce
         exp_id = "sub_" + "-".join(map(str, idx))
@@ -89,7 +88,7 @@ def main():
         rows.append({
             "experiment_id": exp_id,
             "k": len(idx),
-            "siti": "+".join(names),
+            "mappe": "+".join(map(str, idx)),
             "nonstim_%": pct(~F),
             "nonstim_mask_%": pct(df["k_used"] < MIN_GRADIENTS),
             "nonstim_sys_%": pct(~F & (df["k_used"] >= MIN_GRADIENTS)),
@@ -123,14 +122,14 @@ def main():
                   f"nonstim_sys_% {g['nonstim_sys_%'].median():.3f}")
         for lab, r in (("migliore", g.loc[g["dq50"].idxmin()]),
                        ("peggiore", g.loc[g["dq50"].idxmax()])):
-            print(f"   {lab}: {r['siti']:28s} dq50 {r['dq50']:+7.3f}   dq90 {r['dq90']:+7.3f}   "
+            print(f"   {lab}: {r['mappe']:28s} dq50 {r['dq50']:+7.3f}   dq90 {r['dq90']:+7.3f}   "
                   f"non stim. {r['nonstim_%']:6.2f}%")
 
     rule("b) LEAVE-ONE-OUT: k = 5, ordinati per dq50")
-    all_names = full["siti"].split("+")
-    loo = s[s["k"] == len(all_names) - 1].sort_values("dq50").copy()
-    loo.insert(0, "tolto", [next(n for n in all_names if n not in r.split("+")) for r in loo["siti"]])
-    print(loo[["tolto", "dq50", "dq90", "nonstim_%", "nonstim_mask_%", "nonstim_sys_%"]]
+    all_maps = full["mappe"].split("+")
+    loo = s[s["k"] == len(all_maps) - 1].sort_values("dq50").copy()
+    loo.insert(0, "tolta", [next(m for m in all_maps if m not in r.split("+")) for r in loo["mappe"]])
+    print(loo[["tolta", "dq50", "dq90", "nonstim_%", "nonstim_mask_%", "nonstim_sys_%"]]
           .to_string(index=False, float_format=fmt))
 
     rule("c) SPEARMAN tra cond_q50 e dq50, per k")
@@ -142,7 +141,7 @@ def main():
 
     rule("d) AREA NON STIMABILE IN ALMENO UN SOTTOINSIEME, per k")
     for k in sorted(s["k"].unique()):
-        bad = np.logical_or.reduce([df["estimable"].values == 0 for idx, _, df in runs if len(idx) == k])
+        bad = np.logical_or.reduce([df["estimable"].values == 0 for idx, df in runs if len(idx) == k])
         print(f"k = {k}: {pct(bad):6.2f}%")
 
     # ------------------------------------------------------------- figure
@@ -163,7 +162,7 @@ def main():
                edgecolor="white", lw=1, label=CAUSE_LABELS[col])
         bottom += s[col].values
     ax.set_xticks(x)
-    ax.set_xticklabels(s["siti"], rotation=90, fontsize=6.5)
+    ax.set_xticklabels(s["mappe"], rotation=90, fontsize=6.5)
     for k, g in s.groupby("k"):
         xs = x[g.index]
         ax.text(xs.mean(), 1.0, f"k = {k}", transform=ax.get_xaxis_transform(),

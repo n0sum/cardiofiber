@@ -30,7 +30,7 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
     if (!in) throw std::runtime_error(path + ": impossibile aprire il file di esperimento");
 
     const std::set<std::string> known = {
-        "experiment_id", "lat_ply", "ground_truth_ply", "region_cv_csv", "maps",
+        "experiment_id", "lat_ply", "ground_truth_ply", "maps",
         "mask.min_singular_value", "mask.collision_angle_deg", "output_csv"};
     std::map<std::string, std::string> kv;
 
@@ -53,11 +53,10 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
     c.experimentId = kv["experiment_id"];
     c.latPly = kv["lat_ply"];
     c.groundTruthPly = kv["ground_truth_ply"];
-    c.regionCvCsv = kv["region_cv_csv"];
     c.outputCsv = kv["output_csv"];
     if (kv["maps"] == "all") c.allMaps = true;
     else c.maps = parseMapList(kv["maps"]);
-    c.masks.minSingularValue = std::stod(kv["mask.min_singular_value"]);
-    c.masks.collisionAngleDeg = std::stod(kv["mask.collision_angle_deg"]);
+    c.minSingularValue = std::stod(kv["mask.min_singular_value"]);
+    c.collisionAngleDeg = std::stod(kv["mask.collision_angle_deg"]);
     return c;
 }

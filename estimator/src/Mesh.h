@@ -5,7 +5,6 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <map>
 #include <array>
 #include <cstdint>
 #include <glm/vec3.hpp>
@@ -35,27 +34,16 @@ struct FaceAnisotropy {
 // Ground truth per faccia (stadio 6). Usata solo per la valutazione: mai passata allo stimatore.
 // region_tag e' solo un'etichetta di provenienza dei valori di CV.
 struct FaceGroundTruth {
-    vec3 fiber_dir = vec3(0);       // unitario, tangente alla faccia (senza verso)
+    vec3 fiber_dir = vec3(0);       // unitario (senza verso)
     float CV_L = 0.0f;              // mm/ms
     float CV_T = 0.0f;              // mm/ms
     int region_tag = 0;
 };
 
-// Soglie delle maschere della stima (stadio 5). Vengono dal file di esperimento, non hanno default nel codice.
-struct EstimationMasks {
-    double minSingularValue;        // sigma_min assoluta di R (fronti quasi paralleli)
-    double collisionAngleDeg;       // coppia esclusa se l'angolo max col gradiente di un vicino > soglia, gradi
-};
-
-// Velocita' di conduzione vere associate a un tag di regione.
-struct RegionCV {
-    float CV_L, CV_T;               // mm/ms
-};
-
 // Errori di una faccia (stimato vs vero). Se valid == false (faccia non stimabile) err_angle e' NaN.
 // Gli errori relativi sulle CV si calcolano in analisi.py da CV_*_est e CV_*_true.
 struct FaceError {
-    float err_angle = 0.0f;         // gradi, modulo pi: min(|d|, 180 - |d|)
+    float err_angle = 0.0f;         // gradi, acos(|a.b|): senza verso
     bool valid = false;
 };
 
@@ -63,7 +51,6 @@ class Mesh{
     bool imported = false;
     std::vector<Face> faces;
     std::vector<std::vector<float>> vQualities;
-    std::vector<std::string> qualityNames;          // nome del sito di ogni mappa, allineato a vQualities
     std::vector<vec3> vPos;
     // allineato a faces; slot s = vicino oltre lo spigolo v[s]-v[(s+1)%3], v = {a,b,c}; -1 se di bordo
     std::vector<std::array<int,3>> faceNeighbors;
@@ -75,8 +62,6 @@ class Mesh{
 
     std::vector<vec3> vNorm;
 
-    std::vector<FaceAnisotropy> fAniso;
-
     std::vector<FaceGroundTruth> fGT;
 
 public:
@@ -87,11 +72,9 @@ public:
     void importMultiLatPly(const std::string filename);
     // Tiene solo le mappe LAT indicate, nell'ordine dato. Da chiamare prima del calcolo dei gradienti.
     void selectMaps(const std::vector<int>& indices);
-    // Ground truth per faccia (elemento face: fx, fy, fz, elem_tag). Richiede la mesh gia' importata.
-    // Ogni tag presente nel file deve comparire in cvByRegion, altrimenti errore.
-    void importPlyGroundTruth(const std::string& filename, const std::map<int, RegionCV>& cvByRegion);
-    // Legge la mappatura region_tag -> (CV_L, CV_T) da CSV (mm/ms; righe vuote, '#' e intestazione saltate).
-    static std::map<int, RegionCV> importRegionCV(const std::string& filename);
+    // Ground truth per faccia (elemento face: fx, fy, fz, CV_L, CV_T, elem_tag), copiata cosi' com'e'.
+    // Richiede la mesh gia' importata.
+    void importPlyGroundTruth(const std::string& filename);
 
     // Errori per faccia di una stima rispetto alla ground truth. Senza stato: invocabili piu' volte su stime diverse.
     std::vector<FaceError> computeAnisotropyErrors(const std::vector<FaceAnisotropy>& est) const;
@@ -99,9 +82,6 @@ public:
     // riga: i CSV di esperimenti diversi si concatenano e si raggruppano senza perdere la provenienza.
     void exportErrorsAsCsv(const std::string& filename, const std::string& experimentId,
                            const std::vector<FaceAnisotropy>& est) const;
-    void exportErrorsAsCsv(const std::string& filename, const std::string& experimentId) const {
-        exportErrorsAsCsv(filename, experimentId, fAniso);
-    }
 
 
     //processing
@@ -112,11 +92,15 @@ public:
 
     // Maschere per coppia (faccia, mappa), dai soli LAT, gradienti grezzi e geometria. Calcolate una volta.
     // Richiede computeGradients() gia' chiamato.
-    void updateMasks(const EstimationMasks& masks);
+    // fMask[k][i] = 1 se l'angolo massimo col gradiente di un vicino supera collisionAngleDeg (gradi).
+    void updateMasks(double collisionAngleDeg);
 
-    // Stima per faccia (indipendente dalle altre) di CV_L, CV_T, fiber_dir a partire da fTangents,
-    // usando solo le righe con fMask == 0. Richiede updateMasks() gia' chiamato.
-    void updateAnisotropyEstimates(const EstimationMasks& masks);
+    // Stima di CV_L, CV_T, fiber_dir della faccia i a partire da fTangents, usando solo le righe con
+    // fMask == 0. minSingularValue: sigma_min assoluta del sistema (fronti quasi paralleli).
+    // Richiede updateMasks() gia' chiamato.
+    FaceAnisotropy estimateFace(int i, double minSingularValue) const;
+    // estimateFace per ogni faccia (indipendenti fra loro).
+    std::vector<FaceAnisotropy> estimateAnisotropy(double minSingularValue) const;
 
 
 private:
@@ -124,6 +108,9 @@ private:
     std::vector<vec3> areaVectors() const;
     std::vector<vec3> distributeNormalOnVertex(const std::vector<vec3> &fNorm) const;
     vec3 faceGradientOf(int faceIndex, int mapIndex ) const;
+    // Angolo massimo (gradi, in [0, 180]) fra il gradiente della faccia i nella mappa k e quelli dei vicini,
+    // aperti nel piano di i attorno allo spigolo condiviso. 0 senza vicini.
+    double maxNeighborAngle(int i, int k) const;
     //import export helpers
     void exportTangentsAsObj(std::string filename, int mapIndex) const;
 

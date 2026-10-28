@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-Esporta mesh + fibre ground truth in un PLY binario leggibile con happly.
+Esporta mesh + ground truth di uno scenario in un PLY binario leggibile con happly.
 
-Le fibre diventano proprieta' per-FACCIA (fx, fy, fz) insieme al tag di
-regione (elem_tag).
+Per FACCIA: fibra (fx, fy, fz), CV vere (CV_L, CV_T, mm/ms) e tag di regione
+(elem_tag). Le CV vengono da experiments/region_cv/SCENARIO.csv, lo stesso
+CSV da cui run_sims.py costruisce le gregion: ogni tag della mesh deve
+comparirvi. Scrive data/reference/LA_GT_SCENARIO.ply.
+
+Uso, dalla radice del repository:
+    python simulator/convert/fibersToPly.py aniso_const
 
 Legge le fonti CANONICHE del bundle (file testuali openCARP), non i .vtk:
 i .vtk passati per pyvista possono attraversare filtri che riordinano le
@@ -15,6 +20,8 @@ Lato C++:
     face.getProperty<float>("fx")  ->  ground truth per faccia
 """
 
+import csv
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +29,7 @@ import numpy as np
 # ---------------------------------------------------------------- percorsi
 ROOT      = Path(__file__).resolve().parents[2]           # radice del repository
 MESH_BASE = ROOT / "data" / "augmenta"  / "LA_endo_with_fiber"   # senza estensione
-OUT_PATH  = ROOT / "data" / "reference" / "LA_fibers_gt.ply"
+CV_DIR    = ROOT / "experiments" / "region_cv"             # SCENARIO.csv
 # --------------------------------------------------------------------------
 
 
@@ -62,6 +69,8 @@ def read_lon(path, n_faces):
 
 
 def main():
+    scenario = sys.argv[1]
+    out_path = ROOT / "data" / "reference" / f"LA_GT_{scenario}.ply"
     mesh_base = str(MESH_BASE)
 
     pts            = read_pts(mesh_base + ".pts")
@@ -78,56 +87,50 @@ def main():
         raise SystemExit(f"{(norms < 1e-6).sum()} fibre di modulo nullo nel .lon")
     fib = (fib / norms[:, None]).astype(np.float32)
 
-    # ---- quanto le fibre sono gia' tangenti alle facce -------------------
-    e1 = pts[tri[:, 1]] - pts[tri[:, 0]]
-    e2 = pts[tri[:, 2]] - pts[tri[:, 0]]
-    nrm = np.cross(e1, e2)
-    nrm /= np.linalg.norm(nrm, axis=1)[:, None]
-    dev = np.degrees(np.arcsin(np.clip(np.abs(np.einsum("ij,ij->i", fib, nrm)), 0, 1)))
+    # ---- CV vere per faccia dal tag ----------------------------------------
+    cv = {int(r["region_tag"]): (float(r["CV_L"]), float(r["CV_T"]))
+          for r in csv.DictReader(l for l in open(CV_DIR / f"{scenario}.csv") if not l.startswith("#"))}
+    missing = set(np.unique(elem_tag).tolist()) - cv.keys()
+    if missing:
+        raise SystemExit(f"tag {sorted(missing)} assenti da {CV_DIR / scenario}.csv")
+    cv_l = np.array([cv[t][0] for t in elem_tag], dtype=np.float32)
+    cv_t = np.array([cv[t][1] for t in elem_tag], dtype=np.float32)
 
     # ---- vertici: x y z ---------------------------------------------------
     vdtype = np.dtype([("x", "<f4"), ("y", "<f4"), ("z", "<f4")])
     vrec = np.empty(n_verts, dtype=vdtype)
     vrec["x"], vrec["y"], vrec["z"] = pts[:, 0], pts[:, 1], pts[:, 2]
 
-    # ---- facce: uchar 3 + 3 int32 + fx fy fz + elem_tag -------------------
+    # ---- facce: uchar 3 + 3 int32 + fx fy fz + CV_L CV_T + elem_tag -------
     fdtype = np.dtype([("n", "u1"),
                        ("a", "<i4"), ("b", "<i4"), ("c", "<i4"),
                        ("fx", "<f4"), ("fy", "<f4"), ("fz", "<f4"),
+                       ("CV_L", "<f4"), ("CV_T", "<f4"),
                        ("elem_tag", "<i4")])
     frec = np.empty(n_faces, dtype=fdtype)
     frec["n"] = 3
     frec["a"], frec["b"], frec["c"] = tri[:, 0], tri[:, 1], tri[:, 2]
     frec["fx"], frec["fy"], frec["fz"] = fib[:, 0], fib[:, 1], fib[:, 2]
+    frec["CV_L"], frec["CV_T"] = cv_l, cv_t
     frec["elem_tag"] = elem_tag
 
     header = ["ply", "format binary_little_endian 1.0"]
     header.append(f"comment mesh {mesh_base}")
-    header.append("comment ground truth: fibre per faccia dal .lon")
+    header.append(f"comment ground truth: fibre per faccia dal .lon, CV da {CV_DIR / scenario}.csv")
     header.append(f"element vertex {n_verts}")
     header += ["property float x", "property float y", "property float z"]
     header.append(f"element face {n_faces}")
     header.append("property list uchar int vertex_indices")
     header += ["property float fx", "property float fy", "property float fz"]
+    header += ["property float CV_L", "property float CV_T"]
     header.append("property int elem_tag")
     header.append("end_header")
 
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUT_PATH, "wb") as f:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "wb") as f:
         f.write(("\n".join(header) + "\n").encode("ascii"))
         vrec.tofile(f)
         frec.tofile(f)
-
-    print(f"scritto {OUT_PATH}")
-    print(f"  vertici {n_verts}   facce {n_faces}")
-    print(f"  estensione (mm): {np.round(pts.max(0) - pts.min(0), 2)}")
-    tags, counts = np.unique(elem_tag, return_counts=True)
-    print("  tag di regione:")
-    for t, c in zip(tags, counts):
-        print(f"    {t}: {c} facce")
-    print(f"  deviazione fibra dal piano della faccia: "
-          f"mediana {np.median(dev):.3f}deg   max {dev.max():.3f}deg")
-
 
 if __name__ == "__main__":
     main()

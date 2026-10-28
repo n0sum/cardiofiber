@@ -51,7 +51,7 @@ analysis/             validazione e figure
 
 experiments/
   aniso_const.conf    un file per esperimento
-  region_cv/          mappature region_tag -> (CV_L, CV_T)
+  region_cv/          scenari: region_tag -> (CV_L, CV_T)
 
 data/
   external/           SSM scaricato
@@ -204,7 +204,7 @@ attivo, esegue i passi 3-6 in ordine a partire da `data/augmenta/`. Se
 ```bash
 python simulator/stage1/opencarp/mm_to_um.py   # -> data/reference/LA_um.{pts,elem,lon}
 python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv
-                                               # -> data/reference/sims/aniso_const/run_NOME/act.igb
+                                               # -> data/reference/sims/aniso_const/run_k/act.igb
 ```
 
 `mm_to_um.py` moltiplica per 1000 le sole coordinate di
@@ -213,11 +213,10 @@ copiano invariati.
 
 `run_sims.py` lancia `simulator/stage1/opencarp/run_eik.sh` una volta per
 riga di `simulator/stage1/pacing_sites.csv`: sei run eikonali (FIM), un
-sito di pacing ciascuno, ognuna in pochi decimi di secondo. Il punto di
-stimolo e' il baricentro della cella `cell_id` sulla mesh in um,
-arrotondato all'intero; le colonne di coordinate del CSV sono solo
-informative. L'ordine delle righe del CSV e' l'ordine delle mappe
-`lat_k` in `LA_LAT_SCENARIO.ply`. Modalita' eikonale pura: le velocita'
+sito di pacing ciascuno, ognuna in pochi decimi di secondo. Il CSV ha la
+sola colonna `cell_id`: il punto di stimolo e' il baricentro di quella
+cella sulla mesh in um, arrotondato all'intero. La riga k del CSV e' la
+run `run_k` e la mappa `lat_k` in `LA_LAT_SCENARIO.ply`. Modalita' eikonale pura: le velocita'
 si impongono direttamente con `gregion[].dream.vel_l / vel_t / vel_n`, in
 **mm/s**.
 
@@ -226,14 +225,14 @@ Le CV hanno una sola fonte, il CSV dello scenario in
 dello scenario e' il nome del CSV. `run_sims.py` ne costruisce una
 gregion per tag, con `vel_l = CV_L*1000` e `vel_t = vel_n = CV_T*1000`;
 e' l'unico punto della conversione. `run_eik.sh` non contiene velocita'.
-Lo stesso CSV va in `region_cv_csv` del `.conf`.
+Lo stesso CSV da' le CV vere per faccia della ground truth (passo 4).
 
 Scenari in `experiments/region_cv/`, uno per `.conf` di `experiments/`:
 
 | scenario           | CV                                                        |
 |--------------------|-----------------------------------------------------------|
 | `aniso_const`      | uniformi, CV_L 1.05, CV_T 0.525 mm/ms (r = 2)               |
-| `aniso_regional`   | per regione anatomica, costrutto di test                  |
+| `aniso_regional`   | costanti a tratti per tag, costrutto di test              |
 
 `run_all.sh` li simula e stima tutti e due.
 
@@ -241,8 +240,12 @@ Scenari in `experiments/region_cv/`, uno per `.conf` di `experiments/`:
 
 ```bash
 python simulator/convert/multiLatToPly.py aniso_const   # -> data/reference/LA_LAT_aniso_const.ply
-python simulator/convert/fibersToPly.py      # -> data/reference/LA_fibers_gt.ply
+python simulator/convert/fibersToPly.py aniso_const     # -> data/reference/LA_GT_aniso_const.ply
 ```
+
+`LA_GT_SCENARIO.ply` ha, per faccia, la fibra normalizzata (`fx fy fz`),
+le CV vere dello scenario (`CV_L CV_T`, dal CSV per tag) e `elem_tag`. Lo
+stimatore la legge cosi' com'e'.
 
 Entrambi leggono le fonti canoniche (`.pts`, `.elem`, `.lon`, `act.igb`) e
 **non** i `.vtk`: passare per pyvista puo' attraversare filtri che
@@ -256,6 +259,7 @@ cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const.conf
 ./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
+./estimator/build/Tesi0 experiments/aniso_regional.conf
 ```
 
 L'eseguibile si lancia **dalla radice del repository**: i percorsi nei file
@@ -270,10 +274,8 @@ python analysis/analisi.py aniso_regional
 ```
 
 L'argomento e' il nome della cartella in `output/`. Solo tabelle, pesate
-per area: riepilogo, per regione (CV stimate e vere, errore angolare),
-facce di confine contro interne (una faccia e' di confine se condivide un
-vertice con una faccia di tag diverso), errore angolare per fasce di
-`cond`. Vale solo per esperimenti con `maps = all`.
+per area: riepilogo, per tag di regione (CV stimate e vere, errore
+angolare), errore angolare per fasce di `cond`. Vale solo per esperimenti con `maps = all`.
 
 ---
 
@@ -312,11 +314,11 @@ servono note e controllabili, non anatomicamente corrette.
 
 ### Tag di regione
 
+I tag di `LA_endo_with_fiber.elem` vanno da 1 a 7; si usano solo come
+indici. Facce per tag:
+
 ```
-1 = corpo LA (30537)      2 = anello mitralico (1715)
-3 = LIPV (968)            4 = LSPV (1194)
-5 = RIPV (718)            6 = RSPV (989)
-7 = LAA (7149)
+1: 30537   2: 1715   3: 968   4: 1194   5: 718   6: 989   7: 7149
 ```
 
 ### Unita' di misura
