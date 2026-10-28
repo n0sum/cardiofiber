@@ -273,9 +273,27 @@ python analysis/analisi.py aniso_const_nomask
 python analysis/analisi.py aniso_regional
 ```
 
-L'argomento e' il nome della cartella in `output/`. Solo tabelle, pesate
-per area: riepilogo, per tag di regione (CV stimate e vere, errore
-angolare), errore angolare per fasce di `cond`. Vale solo per esperimenti con `maps = all`.
+L'argomento e' il nome della cartella in `output/`. Statistiche pesate per
+area, sulle facce stimabili, di tre errori: angolo di fibra, errore
+relativo con segno su CV_L e sul rapporto CV_L / CV_T. Scrive in
+`output/ESPERIMENTO/figure/`:
+
+- `errori.png`: per ogni errore la curva cumulativa (% di area stimabile
+  con errore <= x), con le linee al 50% e al 90%; nel titolo l'area non
+  stimabile e le coppie (faccia, mappa) escluse;
+- `numeri.csv`: area non stimabile, coppie escluse, q50 e q90 di ogni
+  errore (valore assoluto per i relativi) e mediana con segno dei relativi.
+
+Le coppie escluse sono calcolate su K = righe di `pacing_sites.csv`: vale
+per esperimenti con `maps = all`.
+
+Poi i sottoinsiemi di mappe (vedi `experiments/README.md`):
+
+```bash
+python experiments/subsets.py
+./estimator/build/Tesi0 output/subsets/confs/*.conf
+python analysis/analisi.py --sottoinsiemi
+```
 
 ---
 

@@ -81,8 +81,7 @@ Una faccia con meno di 3 righe rimaste e' non stimabile.
 
 `mask.collision_angle_deg = 181` non esclude nulla, senza codice speciale:
 l'angolo non supera mai 180. `aniso_const_nomask.conf` la usa come
-regressione: il suo `errors.csv`, tolte `experiment_id` e `k_used`, e'
-identico byte per byte a quello di prima delle maschere.
+regressione.
 
 Le LAT negative (FIM non convergito, -1) vengono rifiutate a monte, da
 `simulator/convert/multiLatToPly.py`, prima di scrivere `lat_ply`.
@@ -133,16 +132,23 @@ lavora su un esperimento alla volta.
 `aniso_const.conf` con cambiati solo `experiment_id`, `maps` e
 `output_csv`. L'ID e' `sub_` con gli indici uniti da trattino, es.
 `sub_0-2-4`: niente virgole, perche' `experiment_id` finisce non quotato
-nel CSV. `analysis/subsets.py` etichetta i sottoinsiemi con gli stessi
-indici, uniti da `+` (es. `0+2+4`).
+nel CSV. `analysis/analisi.py --sottoinsiemi` etichetta i sottoinsiemi
+con gli stessi indici, uniti da `+` (es. `0+2+4`).
 
 Per rigenerare i 42 risultati e il confronto:
 
 ```bash
 python experiments/subsets.py
 ./estimator/build/Tesi0 output/subsets/confs/*.conf
-python analysis/subsets.py
+python analysis/analisi.py --sottoinsiemi
 ```
+
+Il confronto e' APPAIATO: gli errori di ogni sottoinsieme si calcolano
+sulle facce stimabili sia in esso sia in `sub_0-1-2-3-4-5`; l'area non
+stimabile e' quella del sottoinsieme. In `output/subsets/figure/`:
+`area_non_stimabile.png`, `angolo.png`, `cv_l.png`, `rapporto.png` (q50 e
+q90 del valore assoluto, un punto per sottoinsieme per k) e `numeri.csv`
+con una riga per sottoinsieme. Tutto e' rigenerato da `run_all.sh`.
 
 I `.conf` non sono in git: derivano in modo deterministico da
 `aniso_const.conf` e da `pacing_sites.csv`, quindi la ricetta e' lo

@@ -29,6 +29,10 @@ cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
 ./estimator/build/Tesi0 experiments/aniso_regional.conf
 
-python analysis/analisi.py aniso_const
-python analysis/analisi.py aniso_const_nomask
-python analysis/analisi.py aniso_regional
+for e in aniso_const aniso_const_nomask aniso_regional; do
+    python analysis/analisi.py $e                 # -> output/$e/figure/
+done
+
+python experiments/subsets.py                     # -> output/subsets/confs/*.conf
+./estimator/build/Tesi0 output/subsets/confs/*.conf
+python analysis/analisi.py --sottoinsiemi         # -> output/subsets/figure/
