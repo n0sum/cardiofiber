@@ -10,12 +10,7 @@
 
 namespace {
     void runExperiment(const ExperimentConfig& cfg) {
-        std::cout << "== esperimento " << cfg.experimentId << "  (" << cfg.sourcePath << ")\n";
-        std::cout << "   maps = ";
-        if (cfg.allMaps) std::cout << "all";
-        else for (size_t i = 0; i < cfg.maps.size(); ++i) std::cout << (i ? "," : "") << cfg.maps[i];
-        std::cout << "  mask.min_singular_value = " << cfg.masks.minSingularValue
-                  << "  mask.collision_angle_deg = " << cfg.masks.collisionAngleDeg << "\n";
+        std::cout << cfg.experimentId << " -> " << cfg.outputCsv << "\n";
 
         Mesh m;
         m.importMultiLatPly(cfg.latPly);
@@ -23,14 +18,13 @@ namespace {
         m.updateVertexNormals();
         m.computeGradients();
         // maschere e stima prima di caricare la ground truth: non possono leggerla
-        m.updateMasks(cfg.masks);
-        m.updateAnisotropyEstimates(cfg.masks);
-        m.importPlyGroundTruth(cfg.groundTruthPly, Mesh::importRegionCV(cfg.regionCvCsv));
+        m.updateMasks(cfg.collisionAngleDeg);
+        auto est = m.estimateAnisotropy(cfg.minSingularValue);
+        m.importPlyGroundTruth(cfg.groundTruthPly);
 
         const std::filesystem::path out(cfg.outputCsv);
         if (out.has_parent_path()) std::filesystem::create_directories(out.parent_path());
-        m.exportErrorsAsCsv(cfg.outputCsv, cfg.experimentId);
-        std::cout << "   scritto " << cfg.outputCsv << "\n";
+        m.exportErrorsAsCsv(cfg.outputCsv, cfg.experimentId, est);
     }
 }
 

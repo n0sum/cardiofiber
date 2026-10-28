@@ -2,12 +2,11 @@
 """
 Esporta mesh + N mappe LAT in un PLY binario leggibile con happly.
 
-Le LAT diventano proprieta' per-vertice chiamate lat_0, lat_1, ... ; i nomi dei
-siti di pacing finiscono nei commenti dell'header.
+Le LAT diventano proprieta' per-vertice chiamate lat_0, lat_1, ...
 
-Le mappe sono gli act.igb delle run openCARP di uno scenario, nell'ordine di
+Le mappe sono gli act.igb delle run openCARP di uno scenario, una per riga di
 pacing_sites.csv. Lo scenario e' il nome del CSV delle CV (es. aniso_const):
-legge data/reference/sims/SCENARIO/run_NOME/act.igb e scrive
+legge data/reference/sims/SCENARIO/run_k/act.igb e scrive
 data/reference/LA_LAT_SCENARIO.ply.
 
 Uso, dalla radice del repository:
@@ -33,7 +32,7 @@ import numpy as np
 ROOT      = Path(__file__).resolve().parents[2]           # radice del repository
 MESH_BASE = ROOT / "data" / "augmenta"  / "LA_endo_with_fiber"   # senza estensione
 SITES     = ROOT / "simulator" / "stage1" / "pacing_sites.csv"
-SIMS_DIR  = ROOT / "data" / "reference" / "sims"                  # SCENARIO/run_NOME/act.igb
+SIMS_DIR  = ROOT / "data" / "reference" / "sims"                  # SCENARIO/run_k/act.igb
 # --------------------------------------------------------------------------
 
 
@@ -72,12 +71,11 @@ def main():
     tri = read_elem(mesh_base + ".elem")
     n_verts, n_faces = pts.shape[0], tri.shape[0]
 
-    names = [row["name"] for row in csv.DictReader(open(SITES))]
     maps = []
-    for name in names:
-        a = read_igb(sims_dir / f"run_{name}" / "act.igb", n_verts)
+    for k in range(len(list(csv.DictReader(open(SITES))))):
+        a = read_igb(sims_dir / f"run_{k}" / "act.igb", n_verts)
         if not (a >= 0).all():                         # FIM non convergito: LAT = -1
-            raise SystemExit(f"mappa '{name}': {int((~(a >= 0)).sum())} nodi con LAT negativa o non finita (FIM non convergito)")
+            raise SystemExit(f"mappa {k}: {int((~(a >= 0)).sum())} nodi con LAT negativa o non finita (FIM non convergito)")
         maps.append(a)
 
     if tri.min() < 0 or tri.max() >= n_verts:
@@ -104,8 +102,6 @@ def main():
     header = ["ply", "format binary_little_endian 1.0"]
     header.append(f"comment mesh {mesh_base}")
     header.append(f"comment lat source {sims_dir}/run_*/act.igb")
-    for k, name in enumerate(names):
-        header.append(f"comment lat_{k} {name}")
     header.append(f"element vertex {n_verts}")
     header += [f"property float {p}" for p in vprops]
     header.append(f"element face {n_faces}")
@@ -117,12 +113,6 @@ def main():
         f.write(("\n".join(header) + "\n").encode("ascii"))
         vrec.tofile(f)
         frec.tofile(f)
-
-    print(f"scritto {out_path}")
-    print(f"  vertici {n_verts}   facce {n_faces}   mappe {len(maps)}")
-    for k, name in enumerate(names):
-        print(f"    lat_{k} = {name}")
-    print(f"  estensione (mm): {np.round(pts.max(0) - pts.min(0), 2)}")
 
 
 if __name__ == "__main__":

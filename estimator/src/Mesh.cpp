@@ -5,8 +5,6 @@
 #include <happly.h>
 #include "Mesh.h"
 #include <fstream>
-#include <sstream>
-#include <iostream>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -31,7 +29,7 @@ std::vector<vec3> normalizeVectors(const std::vector<vec3> &vectors) {
 
 
 // Soglie strutturali della stima di anisotropia (stadio 5). Le soglie delle maschere
-// (EstimationMasks) vengono dal file di esperimento.
+// vengono dal file di esperimento.
 namespace {
     constexpr int    kMinGradients       = 3;       // sotto: sistema sottodeterminato
     constexpr double kMinEigenvalue      = 0.0;     // lambda_2 deve essere > di questo (CV_T^2, mm^2/ms^2)
@@ -141,100 +139,99 @@ void Mesh::computeGradients() {
             fTangents[k][i] = faceGradientOf(i, k);
 }
 
-void Mesh::updateMasks(const EstimationMasks& masks) {
+double Mesh::maxNeighborAngle(int i, int k) const {
+    const std::vector<vec3> &g = fTangents[k];
+    const Face &face = faces[i];
+    const int vi[3] = {face.a, face.b, face.c};
+
+    // collisione: gradiente del vicino aperto nel piano di i attorno allo spigolo condiviso
+    const dvec3 gi(g[i]);
+    double maxAngle = 0.0;
+    for (int s = 0; s < 3; ++s) {
+        const int j = faceNeighbors[i][s];
+        if (j < 0) continue;
+        const int p0 = vi[s], p1 = vi[(s + 1) % 3], pi = vi[(s + 2) % 3];
+        const int pj = faces[j].a != p0 && faces[j].a != p1 ? faces[j].a
+                     : faces[j].b != p0 && faces[j].b != p1 ? faces[j].b : faces[j].c;
+        const dvec3 x0(vPos[p0]);
+        const dvec3 e = normalize(dvec3(vPos[p1]) - x0);
+        const dvec3 di = dvec3(vPos[pi]) - x0, dj = dvec3(vPos[pj]) - x0;
+        const dvec3 bi = normalize(di - dot(di, e) * e);
+        const dvec3 bj = normalize(dj - dot(dj, e) * e);
+        const dvec3 gj(g[j]);
+        const dvec3 gjp = dot(gj, e) * e - dot(gj, bj) * bi;
+        const double angle = std::atan2(length(cross(gi, gjp)), dot(gi, gjp)) * 180.0 / M_PI;
+        if (std::isnan(angle))
+            throw std::runtime_error("updateMasks: angolo NaN alla faccia " + std::to_string(i) + ", vicino "
+                                     + std::to_string(j) + ", mappa " + std::to_string(k));
+        maxAngle = std::max(maxAngle, angle);
+    }
+    return maxAngle;
+}
+
+void Mesh::updateMasks(double collisionAngleDeg) {
     const int K = fTangents.size();
     if (K != vQualities.size()) throw std::runtime_error("updateMasks: gradienti non calcolati");
     fMask.assign(K, std::vector<uint8_t>(faces.size(), 0));
-
-    for (int k = 0; k < K; ++k) {
-        const std::vector<vec3> &g = fTangents[k];
-        int nColl = 0;
-
-        for (int i = 0; i < faces.size(); ++i) {
-            const Face &face = faces[i];
-            const int vi[3] = {face.a, face.b, face.c};
-
-            // collisione: gradiente del vicino aperto nel piano di i attorno allo spigolo condiviso
-            const dvec3 gi(g[i]);
-            double maxAngle = 0.0;
-            for (int s = 0; s < 3; ++s) {
-                const int j = faceNeighbors[i][s];
-                if (j < 0) continue;
-                const int p0 = vi[s], p1 = vi[(s + 1) % 3], pi = vi[(s + 2) % 3];
-                const int pj = faces[j].a != p0 && faces[j].a != p1 ? faces[j].a
-                             : faces[j].b != p0 && faces[j].b != p1 ? faces[j].b : faces[j].c;
-                const dvec3 x0(vPos[p0]);
-                const dvec3 e = normalize(dvec3(vPos[p1]) - x0);
-                const dvec3 di = dvec3(vPos[pi]) - x0, dj = dvec3(vPos[pj]) - x0;
-                const dvec3 bi = normalize(di - dot(di, e) * e);
-                const dvec3 bj = normalize(dj - dot(dj, e) * e);
-                const dvec3 gj(g[j]);
-                const dvec3 gjp = dot(gj, e) * e - dot(gj, bj) * bi;
-                const double angle = std::atan2(length(cross(gi, gjp)), dot(gi, gjp)) * 180.0 / M_PI;
-                if (std::isnan(angle))
-                    throw std::runtime_error("updateMasks: angolo NaN alla faccia " + std::to_string(i) + ", vicino "
-                                             + std::to_string(j) + ", mappa " + std::to_string(k) + " (" + qualityNames[k] + ")");
-                maxAngle = std::max(maxAngle, angle);
-            }
-            fMask[k][i] = maxAngle > masks.collisionAngleDeg;
-            nColl += fMask[k][i];
-        }
-        std::cout << "updateMasks: " << qualityNames[k] << ": collisione " << nColl
-                  << " su " << faces.size() << " facce\n";
-    }
+    for (int k = 0; k < K; ++k)
+        for (int i = 0; i < faces.size(); ++i)
+            fMask[k][i] = maxNeighborAngle(i, k) > collisionAngleDeg;
 }
 
-void Mesh::updateAnisotropyEstimates(const EstimationMasks& masks) {
-    fAniso.assign(faces.size(), FaceAnisotropy());
+FaceAnisotropy Mesh::estimateFace(int i, double minSingularValue) const {
+    FaceAnisotropy fa;
     const int K = fTangents.size();
-    if (fMask.size() != K) throw std::runtime_error("updateAnisotropyEstimates: chiamare prima updateMasks");
+    const Face &face = faces[i];
 
-    for (int i = 0; i < faces.size(); ++i) {
-        FaceAnisotropy &fa = fAniso[i];
-        const Face &face = faces[i];
+    // solo le righe non escluse, in ordine di mappa
+    std::vector<int> used;
+    for (int k = 0; k < K; ++k)
+        if (!fMask[k][i]) used.push_back(k);
+    fa.k_used = used.size();
+    if (fa.k_used < kMinGradients) return fa;  // sottodeterminato: estimable = false
 
-        // solo le righe non escluse, in ordine di mappa
-        std::vector<int> used;
-        for (int k = 0; k < K; ++k)
-            if (!fMask[k][i]) used.push_back(k);
-        fa.k_used = used.size();
-        if (fa.k_used < kMinGradients) continue;    // sottodeterminato: estimable = false
+    // base locale, calcolata una sola volta e usata sia per proiettare sia per ricostruire fiber_dir
+    const vec3 e1 = vPos[face.b] - vPos[face.a];
+    const vec3 e2 = vPos[face.c] - vPos[face.a];
+    const vec3 a2 = cross(e1, e2);
+    const vec3 n = a2 / length(a2);
+    const vec3 u = e1 / length(e1);
+    const vec3 w = cross(n, u);
 
-        // base locale, calcolata una sola volta e usata sia per proiettare sia per ricostruire fiber_dir
-        const vec3 e1 = vPos[face.b] - vPos[face.a];
-        const vec3 e2 = vPos[face.c] - vPos[face.a];
-        const vec3 a2 = cross(e1, e2);
-        const vec3 n = a2 / length(a2);
-        const vec3 u = e1 / length(e1);
-        const vec3 w = cross(n, u);
-
-        std::vector<std::array<double,3>> R(used.size());
-        const std::vector<double> b(used.size(), 1.0);
-        for (int r = 0; r < used.size(); ++r) {
-            const vec3 g = fTangents[used[r]][i];
-            const double g1 = dot(g, u), g2 = dot(g, w);
-            // embedding di Frobenius (g1^2, sqrt(2) g1 g2, g2^2): una rotazione della base locale
-            // agisce come rotazione 3x3, quindi valori singolari e cond non dipendono dalla scelta di u
-            R[r] = {g1*g1, std::sqrt(2.0)*g1*g2, g2*g2};
-        }
-
-        LsqResult lsq;
-        if (!svdLeastSquares(std::move(R), b, masks.minSingularValue, lsq)) continue;
-        fa.cond = static_cast<float>(lsq.sigmaMax / lsq.sigmaMin);
-
-        const double M11 = lsq.m[0], M12 = lsq.m[1] / std::sqrt(2.0), M22 = lsq.m[2];
-        const double somma = M11 + M22;
-        const double differenza = std::sqrt((M11 - M22)*(M11 - M22) + (2.0*M12)*(2.0*M12));
-        const double lambda1 = (somma + differenza) / 2.0;   // CV_L^2
-        const double lambda2 = (somma - differenza) / 2.0;   // CV_T^2
-        if (!(lambda2 > kMinEigenvalue)) continue;
-
-        const double theta = 0.5 * std::atan2(2.0*M12, M11 - M22);
-        fa.CV_L = static_cast<float>(std::sqrt(lambda1));
-        fa.CV_T = static_cast<float>(std::sqrt(lambda2));
-        fa.fiber_dir = static_cast<float>(std::cos(theta))*u + static_cast<float>(std::sin(theta))*w;
-        fa.estimable = true;
+    std::vector<std::array<double,3>> R(used.size());
+    const std::vector<double> b(used.size(), 1.0);
+    for (int r = 0; r < used.size(); ++r) {
+        const vec3 g = fTangents[used[r]][i];
+        const double g1 = dot(g, u), g2 = dot(g, w);
+        // embedding di Frobenius (g1^2, sqrt(2) g1 g2, g2^2): una rotazione della base locale
+        // agisce come rotazione 3x3, quindi valori singolari e cond non dipendono dalla scelta di u
+        R[r] = {g1*g1, std::sqrt(2.0)*g1*g2, g2*g2};
     }
+
+    LsqResult lsq;
+    if (!svdLeastSquares(std::move(R), b, minSingularValue, lsq)) return fa;
+    fa.cond = static_cast<float>(lsq.sigmaMax / lsq.sigmaMin);
+
+    const double M11 = lsq.m[0], M12 = lsq.m[1] / std::sqrt(2.0), M22 = lsq.m[2];
+    const double somma = M11 + M22;
+    const double differenza = std::sqrt((M11 - M22)*(M11 - M22) + (2.0*M12)*(2.0*M12));
+    const double lambda1 = (somma + differenza) / 2.0;   // CV_L^2
+    const double lambda2 = (somma - differenza) / 2.0;   // CV_T^2
+    if (!(lambda2 > kMinEigenvalue)) return fa;
+
+    const double theta = 0.5 * std::atan2(2.0*M12, M11 - M22);
+    fa.CV_L = static_cast<float>(std::sqrt(lambda1));
+    fa.CV_T = static_cast<float>(std::sqrt(lambda2));
+    fa.fiber_dir = static_cast<float>(std::cos(theta))*u + static_cast<float>(std::sin(theta))*w;
+    fa.estimable = true;
+    return fa;
+}
+
+std::vector<FaceAnisotropy> Mesh::estimateAnisotropy(double minSingularValue) const {
+    if (fMask.size() != fTangents.size()) throw std::runtime_error("estimateAnisotropy: chiamare prima updateMasks");
+    std::vector<FaceAnisotropy> est(faces.size());
+    for (int i = 0; i < faces.size(); ++i) est[i] = estimateFace(i, minSingularValue);
+    return est;
 }
 
 // import export
@@ -259,16 +256,6 @@ void Mesh::importMultiLatPly(std::string filename) {
     for (int k = 0; v.hasProperty("lat_" + std::to_string(k)); ++k)
         vQualities.push_back(v.getProperty<float>("lat_" + std::to_string(k)));
 
-    // nomi dei siti dai commenti "lat_k NOME": finiscono non quotati nel CSV delle maschere
-    for (int k = 0; k < vQualities.size(); ++k) {
-        const std::string prefix = "lat_" + std::to_string(k) + " ";
-        const auto c = std::find_if(plyIn.comments.begin(), plyIn.comments.end(),
-                                    [&](const std::string &s) { return s.rfind(prefix, 0) == 0; });
-        if (c == plyIn.comments.end())
-            throw std::runtime_error("importMultiLatPly: manca il commento 'lat_" + std::to_string(k) + " NOME'");
-        qualityNames.push_back(c->substr(prefix.size()));
-    }
-
     const auto& prov_faces = plyIn.getElement("face").getListProperty<int>("vertex_indices");
     faces.reserve(prov_faces.size());
     for (const auto& f : prov_faces) faces.emplace_back(f[0], f[1], f[2]);
@@ -277,46 +264,34 @@ void Mesh::importMultiLatPly(std::string filename) {
     faceNeighbors.assign(faces.size(), {-1, -1, -1});
     std::unordered_map<uint64_t, std::pair<int,int>> firstSeen;   // spigolo -> (faccia, slot) della prima vista
     firstSeen.reserve(faces.size() * 2);
-    double edgeLenSum = 0.0;
     for (int i = 0; i < faces.size(); ++i) {
         const int vv[3] = {faces[i].a, faces[i].b, faces[i].c};
         for (int s = 0; s < 3; ++s) {
             const uint32_t p = vv[s], q = vv[(s + 1) % 3];
             const uint64_t key = (uint64_t(std::min(p, q)) << 32) | std::max(p, q);
             const auto [it, inserted] = firstSeen.try_emplace(key, i, s);
-            if (inserted) {
-                edgeLenSum += distance(vPos[p], vPos[q]);
-            } else {
+            if (!inserted) {
                 faceNeighbors[i][s] = it->second.first;
                 faceNeighbors[it->second.first][it->second.second] = i;
             }
         }
     }
-
-    std::cout << "importPlyLat: " << vPos.size() << " vertici, "
-              << faces.size() << " facce, " << vQualities.size() << " mappe (";
-    for (int k = 0; k < qualityNames.size(); ++k) std::cout << (k ? "," : "") << qualityNames[k];
-    std::cout << "), lunghezza media spigoli " << edgeLenSum / firstSeen.size() << " mm\n";
 }
 
 void Mesh::selectMaps(const std::vector<int>& indices) {
     if (!fTangents.empty()) throw std::runtime_error("selectMaps: gradienti gia' calcolati");
-    if (qualityNames.size() != vQualities.size()) throw std::runtime_error("selectMaps: nomi e mappe non allineati");
     std::vector<std::vector<float>> selected;
-    std::vector<std::string> selectedNames;
     selected.reserve(indices.size());
     for (int k : indices) {
         if (k < 0 || k >= static_cast<int>(vQualities.size()))
             throw std::runtime_error("selectMaps: mappa " + std::to_string(k) + " fuori range (" +
                                      std::to_string(vQualities.size()) + " mappe)");
         selected.push_back(vQualities[k]);
-        selectedNames.push_back(qualityNames[k]);
     }
     vQualities = std::move(selected);
-    qualityNames = std::move(selectedNames);
 }
 
-void Mesh::importPlyGroundTruth(const std::string& filename, const std::map<int, RegionCV>& cvByRegion) {
+void Mesh::importPlyGroundTruth(const std::string& filename) {
     if (faces.empty()) throw std::runtime_error("importPlyGroundTruth: importare prima la mesh");
 
     happly::PLYData plyIn(filename);
@@ -324,47 +299,16 @@ void Mesh::importPlyGroundTruth(const std::string& filename, const std::map<int,
     const std::vector<float> fx = fe.getProperty<float>("fx");
     const std::vector<float> fy = fe.getProperty<float>("fy");
     const std::vector<float> fz = fe.getProperty<float>("fz");
+    const std::vector<float> cvL = fe.getProperty<float>("CV_L");
+    const std::vector<float> cvT = fe.getProperty<float>("CV_T");
     const std::vector<int> tag = fe.getProperty<int>("elem_tag");
     if (fx.size() != faces.size())
         throw std::runtime_error("importPlyGroundTruth: " + std::to_string(fx.size()) + " facce nel file, "
                                  + std::to_string(faces.size()) + " nella mesh");
 
-    std::vector<FaceGroundTruth> gt(faces.size());
-    for (int i = 0; i < faces.size(); ++i) {
-        const Face &face = faces[i];
-        const vec3 n = normalize(cross(vPos[face.b] - vPos[face.a], vPos[face.c] - vPos[face.a]));
-        const vec3 d(fx[i], fy[i], fz[i]);
-        const vec3 t = d - dot(d, n) * n;                    // proiezione sul piano della faccia
-
-        const auto it = cvByRegion.find(tag[i]);
-        if (it == cvByRegion.end())
-            throw std::runtime_error("importPlyGroundTruth: tag " + std::to_string(tag[i]) + " (faccia "
-                                     + std::to_string(i) + ") assente dalla mappatura region_tag -> CV");
-        gt[i].fiber_dir = t / length(t);
-        gt[i].CV_L = it->second.CV_L;
-        gt[i].CV_T = it->second.CV_T;
-        gt[i].region_tag = tag[i];
-    }
-    fGT = std::move(gt);
-
-    std::cout << "importPlyGroundTruth: " << fGT.size() << " facce\n";
-}
-
-std::map<int, RegionCV> Mesh::importRegionCV(const std::string& filename) {
-    std::ifstream in(filename);
-    if (!in) throw std::runtime_error("importRegionCV: impossibile aprire " + filename);
-    std::map<int, RegionCV> result;
-    for (std::string line; std::getline(in, line); ) {
-        if (line.empty() || line[0] == '#' || line.rfind("region_tag", 0) == 0) continue;
-        std::istringstream ss(line);
-        int tag;
-        char comma1, comma2;
-        RegionCV cv;
-        if (!(ss >> tag >> comma1 >> cv.CV_L >> comma2 >> cv.CV_T))
-            throw std::runtime_error("importRegionCV: " + filename + ": riga malformata: '" + line + "'");
-        result[tag] = cv;
-    }
-    return result;
+    fGT.resize(faces.size());
+    for (int i = 0; i < faces.size(); ++i)
+        fGT[i] = {vec3(fx[i], fy[i], fz[i]), cvL[i], cvT[i], tag[i]};
 }
 
 std::vector<FaceError> Mesh::computeAnisotropyErrors(const std::vector<FaceAnisotropy>& est) const {
@@ -377,14 +321,9 @@ std::vector<FaceError> Mesh::computeAnisotropyErrors(const std::vector<FaceAniso
         e.err_angle = nan;
         if (!est[i].estimable) continue;                      // lasciata marcata, non esclusa ne' riempita
 
-        const Face &face = faces[i];
-        const vec3 n = normalize(cross(vPos[face.b] - vPos[face.a], vPos[face.c] - vPos[face.a]));
-        // entrambe gia' nel piano: la stimata e' costruita nella base {u, w}, la vera proiettata all'import
-        const vec3 a = est[i].fiber_dir;
-        const vec3 b = fGT[i].fiber_dir;
-        // angolo nel piano, poi modulo pi: nessuna scelta di orientamento
-        const double delta = std::abs(std::atan2(double(dot(n, cross(a, b))), double(dot(a, b))));
-        e.err_angle = static_cast<float>(std::min(delta, M_PI - delta) * 180.0 / M_PI);
+        const dvec3 a(est[i].fiber_dir), b(fGT[i].fiber_dir);
+        // |a.b|: nessuna scelta di orientamento
+        e.err_angle = static_cast<float>(std::acos(std::min(1.0, std::abs(dot(a, b)))) * 180.0 / M_PI);
         e.valid = true;
     }
     return err;

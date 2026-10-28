@@ -20,8 +20,8 @@ SCENARIOS="aniso_const aniso_regional"
 for s in $SCENARIOS; do
     python simulator/stage1/opencarp/run_sims.py experiments/region_cv/$s.csv   # -> data/reference/sims/$s/run_*/act.igb
     python simulator/convert/multiLatToPly.py $s                              # -> data/reference/LA_LAT_$s.ply
+    python simulator/convert/fibersToPly.py $s                                # -> data/reference/LA_GT_$s.ply
 done
-python simulator/convert/fibersToPly.py           # -> data/reference/LA_fibers_gt.ply
 
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build

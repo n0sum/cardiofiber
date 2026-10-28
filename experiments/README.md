@@ -29,14 +29,17 @@ dell'esperimento sta nei commenti in testa al file.
 |-----------------------------|-----------------------------------------------|
 | `experiment_id`             | identificativo, prima colonna del CSV          |
 | `lat_ply`                   | mesh + K mappe LAT: l'ingresso dello stimatore |
-| `ground_truth_ply`          | fibre e tag di regione per faccia              |
-| `region_cv_csv`             | region_tag -> (CV_L, CV_T), in mm/ms           |
+| `ground_truth_ply`          | fibre, CV vere e tag di regione per faccia     |
 | `maps`                      | `all`, oppure indici separati da virgola       |
 | `mask.min_singular_value`   | soglia sul valore singolare minimo del 3x3     |
 | `mask.collision_angle_deg`  | soglia del criterio di collisione, gradi       |
 | `output_csv`                | dove scrivere gli errori per faccia            |
 
-Tutte le 8 chiavi sono obbligatorie. Le soglie `mask.*` non hanno un
+Tutte le 7 chiavi sono obbligatorie.
+
+`ground_truth_ply` e' `data/reference/LA_GT_SCENARIO.ply` dello scenario
+che ha prodotto `lat_ply` (scritto da `simulator/convert/fibersToPly.py`):
+fibra, CV_L, CV_T e tag per faccia, letti cosi' come sono. Le soglie `mask.*` non hanno un
 default nel codice: esistono solo qui.
 
 `maps = 0,2,4` tiene solo quelle mappe, nell'ordine dato; un indice
@@ -72,7 +75,7 @@ Un criterio di stimolo (escludere le coppie attivate entro una soglia dal
 minimo della mappa) e' stato provato e tolto: effetto trascurabile
 sull'errore, e le righe a gradiente quasi nullo vicino al sito sono
 innocue per i minimi quadrati, mentre il filtro toglieva righe utili
-nella LAA.
+nella zona di tag 7.
 
 Una faccia con meno di 3 righe rimaste e' non stimabile.
 
@@ -83,9 +86,6 @@ identico byte per byte a quello di prima delle maschere.
 
 Le LAT negative (FIM non convergito, -1) vengono rifiutate a monte, da
 `simulator/convert/multiLatToPly.py`, prima di scrivere `lat_ply`.
-
-I nomi delle mappe vengono dai commenti `lat_k NOME` dell'header di
-`lat_ply`, che deve averne uno per ogni mappa.
 
 ## CSV di uscita
 
@@ -104,7 +104,7 @@ Una riga per faccia, nessuna aggregazione. Colonne, nell'ordine:
 | `CV_T_est`      | CV trasversale stimata, mm/ms; vuota se non stimabile   |
 | `CV_L_true`     | CV longitudinale vera, mm/ms                            |
 | `CV_T_true`     | CV trasversale vera, mm/ms                              |
-| `err_angle`     | errore angolare di fibra, gradi; vuoto se non stimabile |
+| `err_angle`     | errore angolare di fibra, `acos(|a.b|)` in gradi; vuoto se non stimabile |
 
 `cond` e' `sigma_max / sigma_min` del sistema della faccia, una riga per
 mappa tenuta: `(g1^2, sqrt(2) g1 g2, g2^2)`, con `(g1, g2)` il gradiente
@@ -128,11 +128,13 @@ lavora su un esperimento alla volta.
 ## Sottoinsiemi di mappe
 
 `subsets.py` scrive un `.conf` per ogni sottoinsieme di k >= 3 delle mappe
-di `lat_ply` (con sei mappe: 20 + 15 + 6 + 1 = 42). Ogni file e'
+(le righe di `simulator/stage1/pacing_sites.csv`; con sei mappe:
+20 + 15 + 6 + 1 = 42). Ogni file e'
 `aniso_const.conf` con cambiati solo `experiment_id`, `maps` e
 `output_csv`. L'ID e' `sub_` con gli indici uniti da trattino, es.
 `sub_0-2-4`: niente virgole, perche' `experiment_id` finisce non quotato
-nel CSV. Le mappe si leggono dai commenti `lat_k NOME` dell'header.
+nel CSV. `analysis/subsets.py` etichetta i sottoinsiemi con gli stessi
+indici, uniti da `+` (es. `0+2+4`).
 
 Per rigenerare i 42 risultati e il confronto:
 
@@ -143,14 +145,14 @@ python analysis/subsets.py
 ```
 
 I `.conf` non sono in git: derivano in modo deterministico da
-`aniso_const.conf` e dall'header di `lat_ply`, quindi la ricetta e' lo
+`aniso_const.conf` e da `pacing_sites.csv`, quindi la ricetta e' lo
 script. Stanno in `output/subsets/confs/`, accanto ai risultati, e
 `output/` e' ignorato. `sub_0-1-2-3-4-5` deve dare lo stesso
 `errors.csv` di `aniso_const`, tolta `experiment_id`.
 
 ## Perche' non JSON
 
-Per leggere otto valori servirebbe vendorizzare un parser JSON. Questo
+Per leggere sette valori servirebbe vendorizzare un parser JSON. Questo
 formato si legge in quindici righe senza dipendenze, ed e' coerente con
 `region_cv/*.csv`, che e' gia' testo piatto. Una dipendenza in meno e' una
 cosa in meno che puo' rompersi fra due anni.
