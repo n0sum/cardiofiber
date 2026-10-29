@@ -9,14 +9,18 @@ cambiano). La riga k del CSV e' la mappa k.
 
 Le CV vengono dal CSV dello scenario (region_tag,CV_L,CV_T in mm/ms), unica
 fonte: qui si convertono in mm/s per openCARP, una gregion per tag. Il nome
-dello scenario e' il nome del CSV.
+dello scenario e' il nome del CSV. Dagli stessi tag viene l'unico dominio
+eikonale (phys_region).
+
+MESH_BASE e' la mesh in um senza estensione: i suoi tag per faccia devono
+essere quelli del CSV.
 
 Le run finiscono in data/reference/sims/SCENARIO/run_k/. openCARP non ha
 un'opzione per sovrascrivere una run esistente, quindi la cartella si
 cancella prima.
 
 Uso, dalla radice del repository:
-    python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv
+    python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv data/reference/LA_um
 """
 
 import csv
@@ -31,16 +35,21 @@ import numpy as np
 HERE     = Path(__file__).resolve().parent
 ROOT     = HERE.parents[2]                                    # radice del repository
 SITES    = HERE.parent / "pacing_sites.csv"
-MESH_UM  = ROOT / "data" / "reference" / "LA_um"              # senza estensione
 SIMS_DIR = ROOT / "data" / "reference" / "sims"
 # --------------------------------------------------------------------------
 
 
-def gregion_args(cv_csv):
-    """Argomenti gregion di openCARP dal CSV delle CV. Unico punto della
-    conversione mm/ms -> mm/s."""
+def region_args(cv_csv):
+    """Argomenti phys_region e gregion di openCARP dal CSV delle CV. Unico
+    punto della conversione mm/ms -> mm/s."""
     rows = list(csv.DictReader(l for l in open(cv_csv) if not l.startswith("#")))
-    args = ["-num_gregions", str(len(rows))]
+    args = ["-num_phys_regions", "1",
+            "-phys_region[0].name", "Eikonal domain",
+            "-phys_region[0].ptype", "2",
+            "-phys_region[0].num_IDs", str(len(rows))]
+    for i, row in enumerate(rows):
+        args += [f"-phys_region[0].ID[{i}]", row["region_tag"]]
+    args += ["-num_gregions", str(len(rows))]
     for i, row in enumerate(rows):
         vel_l = float(row["CV_L"]) * 1000                     # mm/ms -> mm/s
         vel_t = float(row["CV_T"]) * 1000
@@ -54,16 +63,17 @@ def gregion_args(cv_csv):
 
 def main():
     cv_csv = Path(sys.argv[1]).resolve()
+    mesh_um = Path(sys.argv[2]).resolve()
     sims_dir = SIMS_DIR / cv_csv.stem
-    gregions = gregion_args(cv_csv)
-    pts = np.loadtxt(f"{MESH_UM}.pts", skiprows=1, dtype=np.float64)
-    tri = np.loadtxt(f"{MESH_UM}.elem", skiprows=1, usecols=(1, 2, 3), dtype=np.int64)
+    regions = region_args(cv_csv)
+    pts = np.loadtxt(f"{mesh_um}.pts", skiprows=1, dtype=np.float64)
+    tri = np.loadtxt(f"{mesh_um}.elem", skiprows=1, usecols=(1, 2, 3), dtype=np.int64)
     sims_dir.mkdir(parents=True, exist_ok=True)
 
     for k, row in enumerate(csv.DictReader(open(SITES))):
         p = np.round(pts[tri[int(row["cell_id"])]].mean(0)).astype(np.int64)
         shutil.rmtree(sims_dir / f"run_{k}", ignore_errors=True)
-        subprocess.run([HERE / "run_eik.sh", str(MESH_UM), str(k), *map(str, p), *gregions],
+        subprocess.run([HERE / "run_eik.sh", str(mesh_um), str(k), *map(str, p), *regions],
                        cwd=sims_dir, check=True)
 
 

@@ -1,13 +1,49 @@
 # Stima differenziale dell'anisotropia di conduzione atriale
 
-Tesi triennale di geometry processing. Registrazione di mappe di
-attivazione (LAT) tra geometrie atriali distinte tramite functional maps,
-e stima del tensore di conduzione per via differenziale, validate contro
-una ground truth sintetica nota.
+Tesi triennale di geometry processing. Stima del tensore di conduzione
+per via differenziale da mappe di attivazione (LAT), validata contro una
+ground truth sintetica nota. La registrazione delle mappe tra geometrie
+atriali distinte tramite functional maps e' uno stadio futuro, non
+implementato: in `estimator/fmap/` ci sono solo prototipi.
 
 Riferimento di confronto: Roney et al., *A technique for measuring
 anisotropy in atrial conduction to estimate conduction velocity and atrial
 fibre direction*, Computers in Biology and Medicine 104 (2019) 278-290.
+
+---
+
+## Percorso rapido
+
+Dettagli e verifiche nei passi di *Riprodurre tutto da zero*.
+
+```bash
+git clone https://github.com/n0sum/cardiofiber
+cd cardiofiber
+conda env create -f environment.yml
+conda activate tesi
+```
+
+1. openCARP v19.0, vedi *Requisiti*.
+2. Scaricare l'SSM in `data/external/` (passo 1).
+3. AugmentA, a mano nel container Docker, fino a `data/augmenta/` (passo 2).
+4. Dalla radice, con l'ambiente `tesi` attivo:
+   ```bash
+   ./run_all.sh
+   ```
+
+## Risultati attesi
+
+`output/aniso_const/figure/numeri.csv` della run di riferimento:
+
+| grandezza                      | valore  |
+|--------------------------------|---------|
+| angolo di fibra, q50           | 0.747°  |
+| angolo di fibra, q90           | 3.54°   |
+| area non stimabile             | 0.53 %  |
+| coppie (faccia, mappa) escluse | 2.35 %  |
+
+Una versione diversa di AugmentA puo' spostare leggermente questi numeri
+(le fibre sono l'ingresso di tutto il resto).
 
 ---
 
@@ -17,7 +53,7 @@ Le cartelle rispecchiano gli stadi della pipeline.
 
 ```
 simulator/        stadi 1-2   produce geometrie e mappe LAT
-estimator/        stadi 3-5   registra le mappe e stima il tensore
+estimator/        stadi 3-5   stima il tensore (registrazione: stadio futuro)
 analysis/         stadio 6    valida contro la ground truth, confronta
 experiments/                  cosa calcolare in una data run
 data/             ignorato    ingressi e prodotti
@@ -37,15 +73,15 @@ si scarica, e md5 e sha256 nel passo 1 ne fissano il contenuto esatto.
 ```
 simulator/
   stage1/             geometria di riferimento, fibre, mappe LAT
-    opencarp/         file di parametri e script di lancio eikonale
+    opencarp/         mesh in um, tag casuali, lancio eikonale
   stage2/             forme SSM e remeshing  (da fare)
   convert/            da formati openCARP/AugmentA a PLY
 
 estimator/
   src/                C++: gradiente per faccia, stima del tensore
   include/            happly vendorizzato (vedi THIRD_PARTY.md)
-  fmap/               prototipi Python dello stadio 3, in attesa di
-                      essere integrati nel C++
+  fmap/               prototipi Python dello stadio 3 (functional maps),
+                      non usati dalla pipeline
 
 analysis/             validazione e figure
 
@@ -58,7 +94,7 @@ data/
   stage1/             intermedi dello stadio 1 e cartella di lavoro di AugmentA
   reference/          mesh di riferimento, fibre, mappe LAT
   augmenta/           output AugmentA, ingresso di run_all.sh
-  clinical/           mesh cliniche, NON redistribuibili
+  clinical/           mesh cliniche, non distribuite e non usate
 
 output/               CSV di errori per faccia, figure
 ```
@@ -76,10 +112,13 @@ output/               CSV di errori per faccia, figure
   conda activate tesi
   ```
 - **openCARP v19.0**, installato da `.deb` (pacchetto standard, non
-  ubuntu20). Serve `/usr/local/bin/openCARP`. `carputils` non e'
-  necessario: i file di parametri si scrivono a mano.
+  ubuntu20): <https://opencarp.org/download/installation>. Serve
+  `/usr/local/bin/openCARP`. `carputils` non e' necessario e non ci sono
+  file `.par`: i parametri stanno nella riga di comando di
+  `simulator/stage1/opencarp/run_eik.sh`, piu' regioni e velocita' che
+  aggiunge `run_sims.py`.
 - **Docker**, per AugmentA.
-- **CMake** >= 4.1, un compilatore C++20 e **glm** (header-only, l'unica
+- **CMake** >= 3.20, un compilatore C++20 e **glm** (header-only, l'unica
   dipendenza C++ esterna; su Ubuntu `libglm-dev`). Versioni testate:
   GCC 15.2.0, CMake 4.2.3, libglm-dev 1.0.1.
 - ParaView, opzionale, per l'ispezione visiva.
@@ -122,11 +161,23 @@ python simulator/stage1/extract_la.py     # -> data/stage1/ssm_mean_LA.vtk, 2181
 `git status` deve restare pulito. La LA e' la componente con le 4 vene
 polmonari (`LA_REGION` in `extract_la.py`).
 
-Poi le fibre, **a mano**, nel container AugmentA. Si usa il
-`docker/Docker-compose.yml` del repository di AugmentA
-(<https://github.com/KIT-IBT/AugmentA>), che monta il repository di
-AugmentA in `/headless/augmenta`. Il suo volume dei dati va puntato su
-`data/stage1/`:
+Poi le fibre, **a mano**, nel container AugmentA.
+
+> Questa procedura e' scritta dal sorgente di AugmentA e non e' ancora
+> stata rieseguita da capo.
+
+Il commit di AugmentA della run originale non e' registrato. Commit da
+usare: `<COMMIT DA FISSARE>`.
+
+```bash
+git clone https://github.com/KIT-IBT/AugmentA
+cd AugmentA
+git checkout <COMMIT DA FISSARE>
+```
+
+Si usa il `docker/Docker-compose.yml` del repository di AugmentA, che
+monta il repository di AugmentA in `/headless/augmenta`. Il suo volume dei
+dati va puntato su `data/stage1/`:
 
 ```yaml
     volumes:
@@ -139,6 +190,13 @@ Immagine (una volta) e avvio, dalla cartella `docker/` di AugmentA:
 ```bash
 docker build -f Dockerfile-x64 -t augmenta_container_image .
 docker compose -f Docker-compose.yml up
+```
+
+Nel container manca `ruamel.yaml`, che AugmentA importa. Con il container
+avviato (il nome lo da' `docker ps`):
+
+```bash
+docker exec -u root CONTAINER pip install ruamel.yaml
 ```
 
 Dalla radice di questo repository si mette l'apice accanto alla mesh:
@@ -176,12 +234,10 @@ cp data/stage1/ssm_mean_LAAugmentA.log data/stage1/_configs/augmenta_config.yaml
 `data/augmenta/` contiene l'uscita gia' verificata: per controllare una
 nuova run si confronta con quella, senza sovrascriverla.
 
-La run originale e' del 2026-08-20, su un'altra macchina, con l'apice
-dell'auricola scelto a mano con la selezione interattiva (punto 1405);
-le sue coordinate sono in `simulator/stage1/ssm_mean_LA_apexes.csv`. La
-run originale ha usato lo stesso comando senza `--apex-file`, con l'apice
-cliccato a mano sul vertice 1405.
-Il suo ingresso `ssm_mean_LA.vtk` non e' stato conservato, ma si
+La run originale e' del 2026-08-20, su un'altra macchina, con lo stesso
+comando senza `--apex-file`: l'apice dell'auricola e' stato scelto a mano
+con la selezione interattiva (vertice 1405), e le sue coordinate sono in
+`simulator/stage1/ssm_mean_LA_apexes.csv`. Il suo ingresso `ssm_mean_LA.vtk` non e' stato conservato, ma si
 rigenera identico: la mesh prodotta da `extract_la.py` coincide con
 `data/augmenta/LA_endo_with_fiber.*` vertice per vertice (scarto
 massimo 5e-9 mm, arrotondamento del `.pts`) e triangolo per triangolo,
@@ -203,13 +259,26 @@ attivo, esegue i passi 3-6 in ordine a partire da `data/augmenta/`. Se
 
 ```bash
 python simulator/stage1/opencarp/mm_to_um.py   # -> data/reference/LA_um.{pts,elem,lon}
-python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv
+python simulator/stage1/opencarp/random_tags.py aniso_random 0
+                                               # -> data/reference/aniso_random/LA_um.{pts,elem,lon}
+python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv data/reference/LA_um
                                                # -> data/reference/sims/aniso_const/run_k/act.igb
 ```
 
 `mm_to_um.py` moltiplica per 1000 le sole coordinate di
 `LA_endo_with_fiber.pts` (vedi *Unita' di misura*); `.elem` e `.lon` si
 copiano invariati.
+
+`random_tags.py SCENARIO SEED` assegna a ogni triangolo di
+`data/reference/LA_um` uno dei tag di `experiments/region_cv/SCENARIO.csv`,
+a caso con la stessa probabilita' (`numpy.random.default_rng(SEED)`), e
+scrive la mesh in `data/reference/SCENARIO/LA_um`: stessi punti, fibre e
+triangoli, nuovo tag. Il seme (0) sta solo in `run_all.sh`.
+
+`run_sims.py SCENARIO.csv MESH_BASE` simula lo scenario sulla mesh in um
+`MESH_BASE` (senza estensione), i cui tag devono essere quelli del CSV:
+`data/reference/LA_um` per `aniso_const` e `aniso_regional`,
+`data/reference/aniso_random/LA_um` per `aniso_random`.
 
 `run_sims.py` lancia `simulator/stage1/opencarp/run_eik.sh` una volta per
 riga di `simulator/stage1/pacing_sites.csv`: sei run eikonali (FIM), un
@@ -224,28 +293,26 @@ Le CV hanno una sola fonte, il CSV dello scenario in
 `experiments/region_cv/` (`region_tag,CV_L,CV_T`, in **mm/ms**): il nome
 dello scenario e' il nome del CSV. `run_sims.py` ne costruisce una
 gregion per tag, con `vel_l = CV_L*1000` e `vel_t = vel_n = CV_T*1000`;
-e' l'unico punto della conversione. `run_eik.sh` non contiene velocita'.
-Lo stesso CSV da' le CV vere per faccia della ground truth (passo 4).
-
-Scenari in `experiments/region_cv/`, uno per `.conf` di `experiments/`:
-
-| scenario           | CV                                                        |
-|--------------------|-----------------------------------------------------------|
-| `aniso_const`      | uniformi, CV_L 1.05, CV_T 0.525 mm/ms (r = 2)               |
-| `aniso_regional`   | costanti a tratti per tag, costrutto di test              |
-
-`run_all.sh` li simula e stima tutti e due.
+e' l'unico punto della conversione. Dagli stessi tag costruisce l'unico
+dominio eikonale (`phys_region`). `run_eik.sh` non contiene ne' velocita'
+ne' tag. Lo stesso CSV da' le CV vere per faccia della ground truth
+(passo 4). Gli scenari sono in *Ground truth*; `run_all.sh` li simula e
+stima tutti e tre.
 
 ### 4. Conversione in PLY
 
 ```bash
-python simulator/convert/multiLatToPly.py aniso_const   # -> data/reference/LA_LAT_aniso_const.ply
-python simulator/convert/fibersToPly.py aniso_const     # -> data/reference/LA_GT_aniso_const.ply
+python simulator/convert/multiLatToPly.py aniso_const                        # -> data/reference/LA_LAT_aniso_const.ply
+python simulator/convert/fibersToPly.py aniso_const data/reference/LA_um     # -> data/reference/LA_GT_aniso_const.ply
 ```
 
 `LA_GT_SCENARIO.ply` ha, per faccia, la fibra normalizzata (`fx fy fz`),
 le CV vere dello scenario (`CV_L CV_T`, dal CSV per tag) e `elem_tag`. Lo
-stimatore la legge cosi' com'e'.
+stimatore la legge cosi' com'e'. `fibersToPly.py SCENARIO MESH_BASE`
+prende geometria e fibre da `data/augmenta/` e i tag per faccia da
+`MESH_BASE.elem`, la stessa mesh passata a `run_sims.py`; si ferma se i
+triangoli di `MESH_BASE.elem` non coincidono con quelli di
+`data/augmenta/`.
 
 Entrambi leggono le fonti canoniche (`.pts`, `.elem`, `.lon`, `act.igb`) e
 **non** i `.vtk`: passare per pyvista puo' attraversare filtri che
@@ -260,6 +327,7 @@ cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const.conf
 ./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
 ./estimator/build/Tesi0 experiments/aniso_regional.conf
+./estimator/build/Tesi0 experiments/aniso_random.conf
 ```
 
 L'eseguibile si lancia **dalla radice del repository**: i percorsi nei file
@@ -271,6 +339,7 @@ di configurazione sono relativi a essa.
 python analysis/analisi.py aniso_const
 python analysis/analisi.py aniso_const_nomask
 python analysis/analisi.py aniso_regional
+python analysis/analisi.py aniso_random
 ```
 
 L'argomento e' il nome della cartella in `output/`. Statistiche pesate per
@@ -311,9 +380,8 @@ attribuibile a una configurazione, e cambiare una soglia richiederebbe di
 ricompilare.
 
 E' anche cio' che rende possibile calcolare in una sola run anisotropia
-costante, anisotropia variabile per regione e dati registrati via
-functional maps: tre file di configurazione invece di tre versioni del
-programma.
+costante, a tratti per tag e casuale per faccia: tre file di
+configurazione invece di tre versioni del programma.
 
 ---
 
@@ -321,23 +389,35 @@ programma.
 
 | grandezza          | valore                                             |
 |--------------------|----------------------------------------------------|
-| CV longitudinale   | 1050 mm/s  (= 1.05 mm/ms)                          |
-| CV trasversale     | 525 mm/s   (= 0.525 mm/ms)                         |
-| rapporto           | 2.0                                                |
+| CV                 | per tag, dallo scenario (tabella sotto)            |
 | fibre              | AugmentA/LDRBM, per cella                          |
-| corrispondenza     | identita' di indice (SSM) o proiezione (remeshing)  |
+| corrispondenza     | identita' di indice (SSM)                          |
 
 Le fibre sono ground truth **imposta**, non fibre reali di paziente:
 servono note e controllabili, non anatomicamente corrette.
 
+### Scenari
+
+Le CV vere dipendono dallo scenario: `experiments/region_cv/SCENARIO.csv`
+(`region_tag,CV_L,CV_T`, mm/ms), uno per `.conf` di `experiments/`.
+
+| scenario         | tag                         | CV                                                        |
+|------------------|-----------------------------|-----------------------------------------------------------|
+| `aniso_const`    | 1-7 di AugmentA             | uniformi, CV_L 1.05, CV_T 0.525 mm/ms (r = 2)             |
+| `aniso_regional` | 1-7 di AugmentA             | costanti a tratti per tag, costrutto di test (r da 1.25 a 2.5) |
+| `aniso_random`   | 1-25, a caso per faccia     | CV_L = 1.05 x (0.8 ... 1.2), r = 2.0 x (0.8 ... 1.2), tutte le 25 combinazioni; tag 13 = `aniso_const` |
+
 ### Tag di regione
 
 I tag di `LA_endo_with_fiber.elem` vanno da 1 a 7; si usano solo come
-indici. Facce per tag:
+indici. Facce per tag (`aniso_const`, `aniso_regional`):
 
 ```
 1: 30537   2: 1715   3: 968   4: 1194   5: 718   6: 989   7: 7149
 ```
+
+In `aniso_random` i tag sono quelli di `random_tags.py`, circa 1/25
+delle 43270 facce ciascuno (~1730).
 
 ### Unita' di misura
 
@@ -351,11 +431,10 @@ LA di riferimento e' circa [48, 71, 83] mm.
 
 ### Dati clinici
 
-Le mesh cliniche (`2-LA.mesh`, `2-LA-FA.mesh`, `PRE_MESH.mesh`,
-`POST_MESH.mesh`) non sono in questo repository e vanno rimesse in
-`data/clinical/`. Entrano in gioco solo allo stadio 6, per il confronto
-conduzione normale contro fibrillazione atriale, e non fanno parte dello
-scheletro sintetico.
+Non servono per i risultati attuali e non sono distribuiti. Le mesh
+cliniche (`2-LA.mesh`, `2-LA-FA.mesh`, `PRE_MESH.mesh`, `POST_MESH.mesh`)
+sono previste per un confronto futuro conduzione normale contro
+fibrillazione atriale, in `data/clinical/`; nessuno script attuale le legge.
 
 ---
 
