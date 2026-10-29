@@ -7,8 +7,12 @@ Per FACCIA: fibra (fx, fy, fz), CV vere (CV_L, CV_T, mm/ms) e tag di regione
 CSV da cui run_sims.py costruisce le gregion: ogni tag della mesh deve
 comparirvi. Scrive data/reference/LA_GT_SCENARIO.ply.
 
+Geometria e fibre vengono da data/augmenta/, i tag per faccia da
+MESH_BASE.elem (la mesh in um su cui ha girato run_sims.py), che deve avere
+gli stessi triangoli.
+
 Uso, dalla radice del repository:
-    python simulator/convert/fibersToPly.py aniso_const
+    python simulator/convert/fibersToPly.py aniso_const data/reference/LA_um
 
 Legge le fonti CANONICHE del bundle (file testuali openCARP), non i .vtk:
 i .vtk passati per pyvista possono attraversare filtri che riordinano le
@@ -69,12 +73,15 @@ def read_lon(path, n_faces):
 
 
 def main():
-    scenario = sys.argv[1]
+    scenario, tag_base = sys.argv[1], sys.argv[2]
     out_path = ROOT / "data" / "reference" / f"LA_GT_{scenario}.ply"
     mesh_base = str(MESH_BASE)
 
     pts            = read_pts(mesh_base + ".pts")
-    tri, elem_tag  = read_elem(mesh_base + ".elem")
+    tri, _         = read_elem(mesh_base + ".elem")
+    tag_tri, elem_tag = read_elem(tag_base + ".elem")
+    if not np.array_equal(tri, tag_tri):
+        raise SystemExit(f"{tag_base}.elem: triangoli diversi da {mesh_base}.elem")
     fib            = read_lon(mesh_base + ".lon", tri.shape[0])
     n_verts, n_faces = pts.shape[0], tri.shape[0]
 
@@ -115,7 +122,7 @@ def main():
     frec["elem_tag"] = elem_tag
 
     header = ["ply", "format binary_little_endian 1.0"]
-    header.append(f"comment mesh {mesh_base}")
+    header.append(f"comment mesh {mesh_base}, tag da {tag_base}.elem")
     header.append(f"comment ground truth: fibre per faccia dal .lon, CV da {CV_DIR / scenario}.csv")
     header.append(f"element vertex {n_verts}")
     header += ["property float x", "property float y", "property float z"]

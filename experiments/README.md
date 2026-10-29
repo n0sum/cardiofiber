@@ -38,9 +38,39 @@ dell'esperimento sta nei commenti in testa al file.
 Tutte le 7 chiavi sono obbligatorie.
 
 `ground_truth_ply` e' `data/reference/LA_GT_SCENARIO.ply` dello scenario
-che ha prodotto `lat_ply` (scritto da `simulator/convert/fibersToPly.py`):
-fibra, CV_L, CV_T e tag per faccia, letti cosi' come sono. Le soglie `mask.*` non hanno un
-default nel codice: esistono solo qui.
+che ha prodotto `lat_ply`: fibra, CV_L, CV_T e tag per faccia, letti cosi'
+come sono. Le soglie `mask.*` non hanno un default nel codice: esistono
+solo qui.
+
+## Scenari
+
+Uno scenario e' un CSV `region_cv/SCENARIO.csv` (`region_tag,CV_L,CV_T`,
+mm/ms) piu' la mesh in um con quei tag, `MESH_BASE`:
+
+| scenario         | `MESH_BASE`                         | `.conf`               |
+|------------------|-------------------------------------|-----------------------|
+| `aniso_const`    | `data/reference/LA_um`              | `aniso_const.conf`, `aniso_const_nomask.conf` |
+| `aniso_regional` | `data/reference/LA_um`              | `aniso_regional.conf` |
+| `aniso_random`   | `data/reference/aniso_random/LA_um` | `aniso_random.conf`   |
+
+`aniso_random` ha 25 tag, tutte le combinazioni di 5 livelli di
+CV_L = 1.05 x (0.8, 0.9, 1.0, 1.1, 1.2) e 5 di r = CV_L/CV_T = 2.0 x (0.8,
+0.9, 1.0, 1.1, 1.2), CV_L esterno e r interno (tag 13 = `aniso_const`).
+La sua mesh la scrive `simulator/stage1/opencarp/random_tags.py
+aniso_random SEED`, un tag a caso per triangolo con la stessa
+probabilita'; il seme (0) sta solo in `run_all.sh`.
+`aniso_random.conf` e' `aniso_const.conf` con gli altri PLY, soglie uguali.
+
+Per ogni scenario, dalla radice:
+
+```bash
+python simulator/stage1/opencarp/run_sims.py experiments/region_cv/SCENARIO.csv MESH_BASE
+python simulator/convert/multiLatToPly.py SCENARIO     # -> lat_ply
+python simulator/convert/fibersToPly.py SCENARIO MESH_BASE   # -> ground_truth_ply
+```
+
+`fibersToPly.py` prende geometria e fibre da `data/augmenta/` e i tag da
+`MESH_BASE.elem`, e si ferma se i triangoli non coincidono.
 
 `maps = 0,2,4` tiene solo quelle mappe, nell'ordine dato; un indice
 fuori range e' un errore.

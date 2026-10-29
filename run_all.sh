@@ -15,21 +15,27 @@ if [ ! -f data/augmenta/LA_endo_with_fiber.pts ]; then
 fi
 
 python simulator/stage1/opencarp/mm_to_um.py      # -> data/reference/LA_um.*
-# scenari: experiments/region_cv/SCENARIO.csv
-SCENARIOS="aniso_const aniso_regional"
-for s in $SCENARIOS; do
-    python simulator/stage1/opencarp/run_sims.py experiments/region_cv/$s.csv   # -> data/reference/sims/$s/run_*/act.igb
-    python simulator/convert/multiLatToPly.py $s                              # -> data/reference/LA_LAT_$s.ply
-    python simulator/convert/fibersToPly.py $s                                # -> data/reference/LA_GT_$s.ply
-done
+python simulator/stage1/opencarp/random_tags.py aniso_random 0   # -> data/reference/aniso_random/LA_um.*
+
+# scenario: experiments/region_cv/SCENARIO.csv, simulato sulla mesh MESH_BASE (in um, con i tag dello scenario)
+simula() {
+    s=$1; mesh=$2
+    python simulator/stage1/opencarp/run_sims.py experiments/region_cv/$s.csv $mesh   # -> data/reference/sims/$s/run_*/act.igb
+    python simulator/convert/multiLatToPly.py $s                                      # -> data/reference/LA_LAT_$s.ply
+    python simulator/convert/fibersToPly.py $s $mesh                                  # -> data/reference/LA_GT_$s.ply
+}
+simula aniso_const    data/reference/LA_um
+simula aniso_regional data/reference/LA_um
+simula aniso_random   data/reference/aniso_random/LA_um
 
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const.conf
 ./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
 ./estimator/build/Tesi0 experiments/aniso_regional.conf
+./estimator/build/Tesi0 experiments/aniso_random.conf
 
-for e in aniso_const aniso_const_nomask aniso_regional; do
+for e in aniso_const aniso_const_nomask aniso_regional aniso_random; do
     python analysis/analisi.py $e                 # -> output/$e/figure/
 done
 
