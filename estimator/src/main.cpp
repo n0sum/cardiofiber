@@ -17,8 +17,7 @@ namespace {
         if (!cfg.allMaps) m.selectMaps(cfg.maps);
         m.updateVertexNormals();
         m.computeGradients();
-        // maschere e stima prima di caricare la ground truth: non possono leggerla
-        m.updateMasks(cfg.collisionAngleDeg);
+        // stima prima di caricare la ground truth: non puo' leggerla
         auto est = m.estimateAnisotropy(cfg.minSingularValue);
         m.importPlyGroundTruth(cfg.groundTruthPly);
 

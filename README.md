@@ -18,7 +18,7 @@ simulator/
     opencarp/                  mesh in um, tag per zona, simulazioni eikonali
   convert/                     da openCARP a PLY: mappe LAT e verita' per faccia
 estimator/
-  src/                         Tesi0 (C++): gradiente per faccia, maschere, stima del tensore
+  src/                         Tesi0 (C++): gradiente per faccia, stima del tensore
   include/happly.h             lettore PLY vendorizzato (THIRD_PARTY.md)
   roney.py                     metodo 2 di Roney et al. 2019
 analysis/analisi.py            errori pesati per area, figure, numeri.csv
@@ -89,8 +89,7 @@ Uscite, per esperimento, in `output/`:
 
 | cartella                                   | contenuto                                          |
 |--------------------------------------------|----------------------------------------------------|
-| `aniso_const/`, `aniso_const_nomask/`      | `errors.csv` per faccia, `figure/{errori.png,numeri.csv}` |
-| `aniso_zone_43270_nomask/`                 | idem                                               |
+| `aniso_const/`                             | `errors.csv` per faccia, `figure/{errori.png,numeri.csv}` |
 | `subsets/`                                 | sottoinsiemi di mappe, `figure/numeri.csv` e grafici |
 | `zone/`                                    | scenari `aniso_zone_N`, `figure/{zone.png,numeri.csv}` |
 | `roney/`                                   | Roney contro stimatore per faccia, `figure/{const.png,zone.png,numeri.csv}` |
@@ -98,8 +97,7 @@ Uscite, per esperimento, in `output/`:
 Scenari: in `aniso_const` CV uniformi, CV_L 1.05 e CV_T 0.525 mm/ms; in
 `aniso_zone_N` la mesh e' divisa in N zone casuali e ogni zona ha una delle
 25 combinazioni di CV_L e r = CV_L/CV_T di `region_cv/aniso_random.csv`
-(N = 43270: una zona per faccia). `_nomask` spegne la maschera delle
-collisioni. Dettagli in `experiments/README.md`.
+(N = 43270: una zona per faccia). Dettagli in `experiments/README.md`.
 
 ## Risultati attesi
 
@@ -108,33 +106,33 @@ errori relativi in valore assoluto, in %, su CV_L e sul rapporto r.
 
 **aniso_const**, sei mappe (`output/aniso_const/figure/numeri.csv`):
 
-| area non stimabile | coppie escluse | angolo q50 | angolo q90 | CV_L q50 | CV_L q90 | r q50 | r q90 |
-|--------|--------|--------|-------|--------|--------|--------|--------|
-| 0.53 % | 2.35 % | 0.747° | 3.54° | 0.84 % | 4.20 % | 1.79 % | 9.30 % |
+| area non stimabile | angolo q50 | angolo q90 | CV_L q50 | CV_L q90 | r q50 | r q90 |
+|--------|--------|-------|--------|--------|--------|---------|
+| 0.28 % | 0.788° | 3.91° | 0.89 % | 4.69 % | 1.90 % | 10.4 %  |
 
 **Sottoinsiemi di mappe** (`output/subsets/figure/numeri.csv`, confronto
 appaiato con le sei mappe): con 3 mappe, sulle 20 terne, area non stimabile
-10.3-18.4 % (mediana 12.0 %), angolo q50 0.87-1.42° (mediana 1.13°), angolo
-q90 6.9-11.1° (mediana 8.0°); con 6 mappe i valori di `aniso_const`.
+5.3-15.1 % (mediana 7.2 %), angolo q50 0.91-1.48° (mediana 1.19°), angolo
+q90 7.9-12.3° (mediana 9.0°); con 6 mappe i valori di `aniso_const`.
 
 **Zone** (`output/zone/figure/numeri.csv`), d = diametro medio di zona:
 
 | N     | d [mm] | angolo q50 | angolo q90 |
 |-------|--------|------------|------------|
-| 43270 | 0.59   | 5.25°      | 19.4°      |
-| 10000 | 1.23   | 3.70°      | 15.9°      |
-| 2500  | 2.47   | 2.63°      | 12.8°      |
-| 600   | 5.03   | 1.65°      | 8.68°      |
-| 150   | 10.1   | 1.17°      | 6.27°      |
-| 40    | 19.5   | 0.92°      | 4.61°      |
+| 43270 | 0.59   | 5.25°      | 18.4°      |
+| 10000 | 1.23   | 3.88°      | 15.7°      |
+| 2500  | 2.47   | 2.81°      | 13.3°      |
+| 600   | 5.03   | 1.78°      | 9.50°      |
+| 150   | 10.1   | 1.27°      | 7.01°      |
+| 40    | 19.5   | 0.99°      | 5.24°      |
 
 **Roney su aniso_const**, terne di mappe (`output/roney/figure/numeri.csv`;
-errori sulle facce stimabili in entrambi i metodi, 54.6 % dell'area):
+errori sulle facce stimabili in entrambi i metodi, 55.4 % dell'area):
 
 | metodo  | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | r q50  |
 |---------|--------------------|------------|------------|----------|--------|
-| Roney   | 42.5 %             | 9.65°      | 28.6°      | 13.1 %   | 15.1 % |
-| faccia  | 12.8 %             | 1.15°      | 8.31°      | 0.91 %   | 2.97 % |
+| Roney   | 42.5 %             | 9.68°      | 28.8°      | 13.0 %   | 15.2 % |
+| faccia  | 8.2 %              | 1.16°      | 8.55°      | 0.92 %   | 3.01 % |
 
 ## Unita' e formati
 

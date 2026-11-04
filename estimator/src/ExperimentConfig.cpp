@@ -31,7 +31,7 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
 
     const std::set<std::string> known = {
         "experiment_id", "lat_ply", "ground_truth_ply", "maps",
-        "mask.min_singular_value", "mask.collision_angle_deg", "output_csv"};
+        "mask.min_singular_value", "output_csv"};
     std::map<std::string, std::string> kv;
 
     std::string line;
@@ -57,6 +57,5 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
     if (kv["maps"] == "all") c.allMaps = true;
     else c.maps = parseMapList(kv["maps"]);
     c.minSingularValue = std::stod(kv["mask.min_singular_value"]);
-    c.collisionAngleDeg = std::stod(kv["mask.collision_angle_deg"]);
     return c;
 }

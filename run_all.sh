@@ -37,12 +37,7 @@ done
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const.conf
-./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
-./estimator/build/Tesi0 experiments/aniso_zone_43270_nomask.conf
-
-for e in aniso_const aniso_const_nomask aniso_zone_43270_nomask; do
-    python analysis/analisi.py $e                 # -> output/$e/figure/
-done
+python analysis/analisi.py aniso_const            # -> output/aniso_const/figure/
 
 python experiments/subsets.py experiments/aniso_const.conf output/subsets   # -> output/subsets/confs/*.conf
 ./estimator/build/Tesi0 output/subsets/confs/*.conf

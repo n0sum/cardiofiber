@@ -5,8 +5,6 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <array>
-#include <cstdint>
 #include <glm/vec3.hpp>
 #include <glm/geometric.hpp>
 #include <glm/vec2.hpp>
@@ -27,7 +25,7 @@ struct FaceAnisotropy {
     float CV_T = 0.0f;              // mm/ms
     vec3 fiber_dir = vec3(0);       // unitario, tangente alla faccia (senza verso)
     float cond = 0.0f;              // sigma_max / sigma_min del sistema
-    int k_used = 0;                 // righe (mappe) non escluse dalle maschere, entrate nel sistema
+    int k_used = 0;                 // righe (mappe) del sistema: tutte le mappe
     bool estimable = false;         // false: faccia lasciata marcata, campi non significativi
 };
 
@@ -53,13 +51,8 @@ class Mesh{
     std::vector<Face> faces;
     std::vector<std::vector<float>> vQualities;
     std::vector<vec3> vPos;
-    // allineato a faces; slot s = vicino oltre lo spigolo v[s]-v[(s+1)%3], v = {a,b,c}; -1 se di bordo
-    std::vector<std::array<int,3>> faceNeighbors;
 
     std::vector<std::vector<vec3>> fTangents;
-
-    // fMask[k][i]: 1 se la coppia (faccia i, mappa k) e' esclusa per collisione, 0 se tenuta; map-major come vQualities
-    std::vector<std::vector<uint8_t>> fMask;
 
     std::vector<vec3> vNorm;
 
@@ -91,14 +84,9 @@ public:
 
     void updateVertexNormals();
 
-    // Maschere per coppia (faccia, mappa), dai soli LAT, gradienti grezzi e geometria. Calcolate una volta.
+    // Stima di CV_L, CV_T, fiber_dir della faccia i a partire da fTangents, una riga per mappa.
+    // minSingularValue: sigma_min assoluta del sistema (fronti quasi paralleli).
     // Richiede computeGradients() gia' chiamato.
-    // fMask[k][i] = 1 se l'angolo massimo col gradiente di un vicino supera collisionAngleDeg (gradi).
-    void updateMasks(double collisionAngleDeg);
-
-    // Stima di CV_L, CV_T, fiber_dir della faccia i a partire da fTangents, usando solo le righe con
-    // fMask == 0. minSingularValue: sigma_min assoluta del sistema (fronti quasi paralleli).
-    // Richiede updateMasks() gia' chiamato.
     FaceAnisotropy estimateFace(int i, double minSingularValue) const;
     // estimateFace per ogni faccia (indipendenti fra loro).
     std::vector<FaceAnisotropy> estimateAnisotropy(double minSingularValue) const;
@@ -109,9 +97,6 @@ private:
     std::vector<vec3> areaVectors() const;
     std::vector<vec3> distributeNormalOnVertex(const std::vector<vec3> &fNorm) const;
     vec3 faceGradientOf(int faceIndex, int mapIndex ) const;
-    // Angolo massimo (gradi, in [0, 180]) fra il gradiente della faccia i nella mappa k e quelli dei vicini,
-    // aperti nel piano di i attorno allo spigolo condiviso. 0 senza vicini.
-    double maxNeighborAngle(int i, int k) const;
     //import export helpers
     void exportTangentsAsObj(std::string filename, int mapIndex) const;
 

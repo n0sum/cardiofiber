@@ -73,11 +73,10 @@ def load(path):
     return df
 
 
-def masks(df, k):
-    """% di area non stimabile e % di coppie (faccia, mappa) escluse, su k mappe."""
+def nonstim(df):
+    """% di area non stimabile."""
     w = df["area"]
-    return (100 * w[df["estimable"] == 0].sum() / w.sum(),
-            100 * (w * (k - df["k_used"])).sum() / (k * w.sum()))
+    return 100 * w[df["estimable"] == 0].sum() / w.sum()
 
 
 def quantiles(df, prefix=""):
@@ -99,8 +98,8 @@ def experiment(name):
     df = load(ROOT / "output" / name / "errors.csv")
     out_dir = ROOT / "output" / name / "figure"
     out_dir.mkdir(parents=True, exist_ok=True)
-    nonstim, excl = masks(df, K)
-    pd.DataFrame([{"area_non_stimabile_%": nonstim, "coppie_escluse_%": excl, **quantiles(df)}]) \
+    ns = nonstim(df)
+    pd.DataFrame([{"area_non_stimabile_%": ns, **quantiles(df)}]) \
         .to_csv(out_dir / "numeri.csv", index=False, float_format="%.6g")
 
     est = df[df["estimable"] == 1]
@@ -121,7 +120,7 @@ def experiment(name):
         ax.set_xlabel(label)
         ax.set_ylabel("area stimabile con errore <= x [%]")
         ax.grid(alpha=0.3, which="both")
-    fig.suptitle(f"{name}: area non stimabile {nonstim:.2f}%, coppie (faccia, mappa) escluse {excl:.2f}%")
+    fig.suptitle(f"{name}: area non stimabile {ns:.2f}%")
     plt.tight_layout()
     plt.savefig(out_dir / "errori.png", dpi=140)
     plt.close()
@@ -138,7 +137,7 @@ def subsets():
         df = runs[idx]
         paired = df[(df["estimable"] == 1) & (ref["estimable"] == 1)]
         rows.append({"sottoinsieme": "+".join(map(str, idx)), "k": len(idx),
-                     "area_non_stimabile_%": masks(df, len(idx))[0], **quantiles(paired)})
+                     "area_non_stimabile_%": nonstim(df), **quantiles(paired)})
     s = pd.DataFrame(rows)
     out_dir = SUBSETS / "figure"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -176,16 +175,15 @@ def zone():
     for d in ZONE.glob("aniso_zone_*"):
         df = load(d / "errors.csv")
         n = int(d.name.removeprefix("aniso_zone_"))
-        nonstim, excl = masks(df, K)
         rows.append({"N": n, "d": np.sqrt(4 * df["area"].sum() / (np.pi * n)),
-                     "area_non_stimabile_%": nonstim, "coppie_escluse_%": excl, **quantiles(df)})
+                     "area_non_stimabile_%": nonstim(df), **quantiles(df)})
     z = pd.DataFrame(rows).sort_values("d")
     out_dir = ZONE / "figure"
     out_dir.mkdir(parents=True, exist_ok=True)
     z.to_csv(out_dir / "numeri.csv", index=False, float_format="%.6g")
 
     c = load(ROOT / "output" / "aniso_const" / "errors.csv")
-    ref = {"area_non_stimabile_%": masks(c, K)[0], **quantiles(c)}
+    ref = {"area_non_stimabile_%": nonstim(c), **quantiles(c)}
 
     fig, axes = plt.subplots(1, 4, figsize=(18, 4.5))
     panels = [("area non stimabile [%]", [("area_non_stimabile_%", "o", "#2a78d6", None)])]
@@ -219,16 +217,16 @@ def roney():
             area = next(iter(runs["faccia"].values()))["area"].sum()
             d = np.sqrt(4 * area / (np.pi * int(sc.removeprefix("aniso_zone_"))))
         for arm in ARMS:
-            paired, nonstim, both_area, tot = [], 0.0, 0.0, 0.0
+            paired, nonstim_area, both_area, tot = [], 0.0, 0.0, 0.0
             for sub, df in runs[arm].items():
                 both = (runs["roney"][sub]["estimable"] == 1) & (runs["faccia"][sub]["estimable"] == 1)
                 paired.append(df[both])
-                nonstim += masks(df, 3)[0] * df["area"].sum()
+                nonstim_area += nonstim(df) * df["area"].sum()
                 both_area += df["area"][both].sum()
                 tot += df["area"].sum()
                 per_sub.append({"scenario": sc, "braccio": arm, "sub": sub,
-                                "area_non_stimabile_%": masks(df, 3)[0], **quantiles(df[both])})
-            rows.append({"scenario": sc, "braccio": arm, "d": d, "area_non_stimabile_%": nonstim / tot,
+                                "area_non_stimabile_%": nonstim(df), **quantiles(df[both])})
+            rows.append({"scenario": sc, "braccio": arm, "d": d, "area_non_stimabile_%": nonstim_area / tot,
                          "area_appaiata_%": 100 * both_area / tot, **quantiles(pd.concat(paired))})
     r, s = pd.DataFrame(rows), pd.DataFrame(per_sub)
     out_dir = RONEY / "figure"

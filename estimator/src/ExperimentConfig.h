@@ -11,7 +11,6 @@ struct ExperimentConfig {
     bool allMaps = false;               // maps = all
     std::vector<int> maps;              // altrimenti gli indici, nell'ordine dato
     double minSingularValue = 0.0;      // sigma_min assoluta del sistema (fronti quasi paralleli)
-    double collisionAngleDeg = 0.0;     // coppia esclusa se l'angolo max col gradiente di un vicino > soglia, gradi
 };
 
 // Errore (runtime_error) su: file mancante, chiave sconosciuta (con file e riga), chiave obbligatoria mancante.

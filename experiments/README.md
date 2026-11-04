@@ -11,7 +11,7 @@ Tutti i file vengono letti e validati prima di eseguire il primo.
 
 ## Perche' i parametri stanno qui e non nel codice
 
-Le soglie delle maschere determinano i risultati: sono dati, non
+Le soglie determinano i risultati: sono dati, non
 implementazione. Se stanno nel codice, un risultato non e' piu'
 attribuibile a una configurazione, e cambiare una soglia richiede di
 ricompilare e di perdere la tracciabilita' di cosa ha prodotto cosa.
@@ -29,15 +29,14 @@ dell'esperimento sta nei commenti in testa al file.
 | `ground_truth_ply`          | fibre, CV vere e tag di regione per faccia     |
 | `maps`                      | `all`, oppure indici separati da virgola       |
 | `mask.min_singular_value`   | soglia sul valore singolare minimo del 3x3     |
-| `mask.collision_angle_deg`  | soglia del criterio di collisione, gradi       |
 | `output_csv`                | dove scrivere gli errori per faccia            |
 
-Tutte le 7 chiavi sono obbligatorie.
+Tutte le 6 chiavi sono obbligatorie.
 
 `ground_truth_ply` e' `data/reference/LA_GT_NOME.ply` dello scenario
 che ha prodotto `lat_ply`: fibra, CV_L, CV_T e tag per faccia, letti cosi'
-come sono. Le soglie `mask.*` non hanno un default nel codice: esistono
-solo qui.
+come sono. La soglia `mask.min_singular_value` non ha un default nel
+codice: esiste solo qui.
 
 ## Scenari
 
@@ -46,8 +45,8 @@ Uno scenario e' un nome `NOME`, un CSV `region_cv/*.csv`
 
 | scenario       | `MESH_BASE`                         | `.conf`                                       |
 |----------------|-------------------------------------|-----------------------------------------------|
-| `aniso_const`  | `data/reference/LA_um`              | `aniso_const.conf`, `aniso_const_nomask.conf` |
-| `aniso_zone_N` | `data/reference/aniso_zone_N/LA_um` | generati da `zone.py`; `aniso_zone_43270_nomask.conf` |
+| `aniso_const`  | `data/reference/LA_um`              | `aniso_const.conf`                            |
+| `aniso_zone_N` | `data/reference/aniso_zone_N/LA_um` | generati da `zone.py`                         |
 
 `aniso_const` usa `aniso_const.csv`, tutti gli `aniso_zone_N` usano
 `aniso_random.csv`.
@@ -60,8 +59,6 @@ aniso_zone_N experiments/region_cv/aniso_random.csv 0 N`: N zone
 attorno a N facce scelte a caso (faccia al centro piu' vicino), un tag a
 caso per zona con la stessa probabilita'; con N = 43270 ogni faccia e' una
 zona. Semi e N stanno solo in `run_all.sh`.
-`aniso_zone_43270_nomask.conf` e' il `.conf` di `aniso_zone_43270` con
-`mask.collision_angle_deg = 181`, come `aniso_const_nomask.conf`.
 
 Per ogni scenario, dalla radice:
 
@@ -87,34 +84,12 @@ si lancia da la'.
 `experiment_id` finisce non quotato in ogni riga del CSV: non deve
 contenere virgole.
 
-## Maschere per coppia (faccia, mappa)
+## Facce non stimabili
 
-Prima della stima, ogni coppia (faccia `i`, mappa `k`) puo' essere esclusa
-dal sistema lineare della faccia: si toglie la sola riga `k`, le altre
-mappe della faccia restano. Le maschere si calcolano una volta sui
-gradienti grezzi, solo da LAT, gradienti e geometria della mesh: niente
-ground truth, CV vere, fibre o posizioni dei siti. In `main.cpp` vengono
-calcolate prima che la ground truth sia caricata.
-
-L'unico criterio e' la **collisione**: per ogni vicino `j` (adiacenza per
-spigolo) il gradiente di `j` viene aperto nel piano di `i` attorno allo
-spigolo condiviso, e si misura l'angolo pieno, in [0, 180] gradi, con
-quello di `i`. La coppia e' esclusa se il massimo sui vicini supera
-`mask.collision_angle_deg`. Gradiente nullo da' angolo 0, una faccia senza
-vicini da' massimo 0.
-
-Un criterio di stimolo (escludere le coppie attivate entro una soglia dal
-minimo della mappa) e' stato provato e tolto: effetto trascurabile
-sull'errore, e le righe a gradiente quasi nullo vicino al sito sono
-innocue per i minimi quadrati, mentre il filtro toglieva righe utili
-nella zona di tag 7.
-
-Una faccia con meno di 3 righe rimaste e' non stimabile.
-
-`mask.collision_angle_deg = 181` non esclude nulla, senza codice speciale:
-l'angolo non supera mai 180. `aniso_const_nomask.conf` la usa come
-regressione, `aniso_zone_43270_nomask.conf` per misurare l'effetto della
-maschera sull'anisotropia casuale per faccia.
+Ogni faccia usa tutte le mappe, una riga per mappa nel suo sistema lineare.
+E' non stimabile se ha meno di 3 mappe, se il valore singolare minimo del
+sistema non supera `mask.min_singular_value` (fronti quasi paralleli) o se
+l'autovalore minore del tensore stimato (CV_T^2) non e' positivo.
 
 Le LAT negative (FIM non convergito, -1) vengono rifiutate a monte, da
 `simulator/convert/multiLatToPly.py`, prima di scrivere `lat_ply`.
@@ -129,8 +104,8 @@ Una riga per faccia, nessuna aggregazione. Colonne, nell'ordine:
 | `face_id`       | indice della faccia nella mesh                          |
 | `area`          | area della faccia, mm^2                                 |
 | `region_tag`    | tag di regione dalla ground truth                       |
-| `estimable`     | 1 se la faccia supera le maschere, 0 altrimenti         |
-| `k_used`        | mappe rimaste dopo le maschere per coppia               |
+| `estimable`     | 1 se la faccia e' stimabile, 0 altrimenti               |
+| `k_used`        | mappe nel sistema della faccia: tutte quelle di `maps`  |
 | `cond`          | numero di condizionamento (vedi sotto); vuoto se non calcolato |
 | `CV_L_est`      | CV longitudinale stimata, mm/ms; vuota se non stimabile |
 | `CV_T_est`      | CV trasversale stimata, mm/ms; vuota se non stimabile   |
@@ -139,7 +114,7 @@ Una riga per faccia, nessuna aggregazione. Colonne, nell'ordine:
 | `err_angle`     | errore angolare di fibra, `acos(|a.b|)` in gradi; vuoto se non stimabile |
 
 `cond` e' `sigma_max / sigma_min` del sistema della faccia, una riga per
-mappa tenuta: `(g1^2, sqrt(2) g1 g2, g2^2)`, con `(g1, g2)` il gradiente
+mappa: `(g1^2, sqrt(2) g1 g2, g2^2)`, con `(g1, g2)` il gradiente
 LAT nella base locale della faccia. Il `sqrt(2)` e' l'embedding di
 Frobenius delle matrici simmetriche: una rotazione della base agisce come
 rotazione 3x3, quindi `cond` e la soglia `mask.min_singular_value` non
@@ -194,9 +169,10 @@ script. Stanno in `output/subsets/confs/`, accanto ai risultati, e
 Gli scenari `aniso_zone_N`, N = 43270, 10000, 2500, 600, 150, 40, seme 0,
 hanno le 25 combinazioni di `aniso_random.csv` assegnate per zona (vedi
 *Scenari*). `zone.py N ...` scrive un `.conf` per
-ciascuno in `output/zone/confs/`: `aniso_const.conf` (maschera a 30
-gradi) con cambiati solo `experiment_id` (`aniso_zone_N`), `lat_ply`,
-`ground_truth_ply` e `output_csv` (`output/zone/aniso_zone_N/errors.csv`).
+ciascuno in `output/zone/confs/`: `aniso_const.conf` con cambiati solo
+`experiment_id` (`aniso_zone_N`), `lat_ply`, `ground_truth_ply` e
+`output_csv` (`output/zone/aniso_zone_N/errors.csv`); al posto del commento
+in testa al modello, una riga che dice quale scenario e'.
 Come per i sottoinsiemi, i `.conf` non sono in git: la ricetta e' lo
 script.
 
@@ -209,7 +185,7 @@ python analysis/analisi.py --zone
 `analisi.py --zone` calcola per ogni N il diametro medio di zona
 d = sqrt(4 A / (pi N)) in mm, A = area totale della mesh, e scrive in
 `output/zone/figure/`: `numeri.csv`, una riga per N con d, area non
-stimabile, coppie escluse, q50 e q90 dei tre errori e mediane con segno
+stimabile, q50 e q90 dei tre errori e mediane con segno
 dei relativi; `zone.png`, quattro pannelli (area non stimabile, angolo,
 CV_L, rapporto) in funzione di d in scala log, q50 e q90, con il valore di
 `aniso_const` tratteggiato come riferimento.
@@ -223,7 +199,7 @@ Metodo 2 di Roney et al. 2019 su terne di mappe (`estimator/roney.py`,
 
 ## Perche' non JSON
 
-Per leggere sette valori servirebbe vendorizzare un parser JSON. Questo
+Per leggere sei valori servirebbe vendorizzare un parser JSON. Questo
 formato si legge in quindici righe senza dipendenze, ed e' coerente con
 `region_cv/*.csv`, che e' gia' testo piatto. Una dipendenza in meno e' una
 cosa in meno che puo' rompersi fra due anni.
