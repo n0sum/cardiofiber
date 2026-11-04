@@ -53,10 +53,19 @@ for e in aniso_random aniso_random_nomask; do
     python analysis/vicini.py $e                  # -> output/$e/figure/vicini.csv
 done
 
-python experiments/subsets.py                     # -> output/subsets/confs/*.conf
+python experiments/subsets.py experiments/aniso_const.conf output/subsets   # -> output/subsets/confs/*.conf
 ./estimator/build/Tesi0 output/subsets/confs/*.conf
 python analysis/analisi.py --sottoinsiemi         # -> output/subsets/figure/
 
 python experiments/zone.py $ZONE                  # -> output/zone/confs/*.conf
 ./estimator/build/Tesi0 output/zone/confs/*.conf
 python analysis/analisi.py --zone                 # -> output/zone/figure/
+
+# metodo 2 di Roney et al. 2019 contro lo stimatore per faccia, solo terne di mappe
+python experiments/subsets.py experiments/aniso_const.conf output/roney/aniso_const/faccia 3
+for n in $ZONE; do
+    python experiments/subsets.py output/zone/confs/aniso_zone_$n.conf output/roney/aniso_zone_$n/faccia 3
+done
+./estimator/build/Tesi0 output/roney/*/faccia/confs/*.conf
+python estimator/roney.py experiments/roney.conf aniso_const $(for n in $ZONE; do echo aniso_zone_$n; done)
+python analysis/analisi.py --roney                # -> output/roney/figure/

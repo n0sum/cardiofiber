@@ -389,7 +389,7 @@ dell'errore relativo su CV_L e sul rapporto:
 Poi i sottoinsiemi di mappe (vedi `experiments/README.md`):
 
 ```bash
-python experiments/subsets.py
+python experiments/subsets.py experiments/aniso_const.conf output/subsets
 ./estimator/build/Tesi0 output/subsets/confs/*.conf
 python analysis/analisi.py --sottoinsiemi
 ```
@@ -401,6 +401,8 @@ python experiments/zone.py 43270 10000 2500 600 150 40
 ./estimator/build/Tesi0 output/zone/confs/*.conf
 python analysis/analisi.py --zone
 ```
+
+Confronto con il metodo 2 di Roney et al. 2019 su terne di mappe (`estimator/roney.py`, `experiments/roney.conf`; comandi in fondo a `run_all.sh`): `output/roney/SCENARIO/{roney,patch,faccia}/sub_*/errors.csv`, confronto in `output/roney/figure/` (`analisi.py --roney`).
 
 ---
 
