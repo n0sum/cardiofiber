@@ -23,7 +23,7 @@ estimator/
   roney.py                     metodo 2 di Roney et al. 2019
 analysis/analisi.py            errori pesati per area, figure, numeri.csv
 experiments/                   .conf degli esperimenti, CV per scenario (region_cv/),
-                               subsets.py, zone.py; formati in experiments/README.md
+                               subsets.py, zone.py, mappe.py; formati in experiments/README.md
 ```
 
 ## Requisiti
@@ -92,7 +92,8 @@ Uscite, per esperimento, in `output/`:
 | `aniso_const/`                             | `errors.csv` per faccia, `figure/{errori.png,numeri.csv}` |
 | `subsets/`                                 | sottoinsiemi di mappe, `figure/numeri.csv` e grafici |
 | `zone/`                                    | scenari `aniso_zone_N`, `figure/{zone.png,numeri.csv}` |
-| `roney/`                                   | Roney contro stimatore per faccia, `figure/{const.png,zone.png,numeri.csv}` |
+| `roney/`                                   | Roney contro stimatore per faccia, `figure/{const.png,zone.png,numeri.csv,terne.csv}` |
+| `mappe/`                                   | PLY degli errori per faccia su `aniso_const`, per terne scelte e sei mappe |
 
 Scenari: in `aniso_const` CV uniformi, CV_L 1.05 e CV_T 0.525 mm/ms; in
 `aniso_zone_N` la mesh e' divisa in N zone casuali e ogni zona ha una delle

@@ -17,7 +17,7 @@ Uso, dalla radice del repository:
         -> output/zone/figure/{zone.png, numeri.csv}
            da output/zone/aniso_zone_*/errors.csv (generati da experiments/zone.py)
     python analysis/analisi.py --roney
-        -> output/roney/figure/{const.png, zone.png, numeri.csv}
+        -> output/roney/figure/{const.png, zone.png, numeri.csv, terne.csv}
            da output/roney/SCENARIO/{roney,faccia}/sub_*/errors.csv (estimator/roney.py)
 
 Sottoinsiemi: confronto APPAIATO, gli errori di ogni sottoinsieme si calcolano
@@ -28,6 +28,7 @@ A = area totale in mm^2; riferimento orizzontale: aniso_const.
 
 Roney: per scenario e terna, confronto APPAIATO fra i due bracci (facce
 stimabili in entrambi); l'area non stimabile e' di ogni braccio da solo.
+numeri.csv ha una riga per scenario e braccio, terne.csv una per terna.
 """
 
 import argparse
@@ -232,6 +233,7 @@ def roney():
     out_dir = RONEY / "figure"
     out_dir.mkdir(parents=True, exist_ok=True)
     r.to_csv(out_dir / "numeri.csv", index=False, float_format="%.6g")
+    s.to_csv(out_dir / "terne.csv", index=False, float_format="%.6g")
 
     panels = [("area_non_stimabile_%", "area non stimabile [%]")] + \
              [(e, label + (", valore assoluto" if e != "angolo" else "")) for e, label in ERRORS.items()]

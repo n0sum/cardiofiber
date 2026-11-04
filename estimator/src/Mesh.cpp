@@ -14,6 +14,8 @@
 #include <limits>
 #include <iomanip>
 #include <stdexcept>
+#include <sstream>
+#include <filesystem>
 
 
 //helpers
@@ -292,6 +294,70 @@ void Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& exp
     }
     out.close();
     if (!out) throw std::runtime_error("exportErrorsAsCsv: errore di scrittura su " + filename);
+}
+
+void Mesh::exportErrorsAsPly(const std::string& errorsCsv, const std::string& filename) const {
+    std::ifstream in(errorsCsv);
+    if (!in) throw std::runtime_error("exportErrorsAsPly: impossibile aprire " + errorsCsv);
+    auto split = [](const std::string& line) {
+        std::vector<std::string> f;
+        std::stringstream ss(line);
+        for (std::string x; std::getline(ss, x, ',');) f.push_back(x);
+        if (!line.empty() && line.back() == ',') f.emplace_back();      // ultima colonna vuota
+        return f;
+    };
+    std::string line;
+    std::getline(in, line);
+    const std::vector<std::string> header = split(line);
+    auto col = [&](const std::string& name) {
+        const auto it = std::find(header.begin(), header.end(), name);
+        if (it == header.end()) throw std::runtime_error("exportErrorsAsPly: manca la colonna " + name + " in " + errorsCsv);
+        return it - header.begin();
+    };
+    const auto cFace = col("face_id"), cEst = col("estimable"), cLe = col("CV_L_est"), cTe = col("CV_T_est"),
+               cLt = col("CV_L_true"), cTt = col("CV_T_true"), cAng = col("err_angle");
+
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    std::vector<int> estimable;
+    std::vector<float> angle, cvL, ratio;
+    while (std::getline(in, line)) {
+        const std::vector<std::string> f = split(line);
+        auto num = [&](long c) { return f[c].empty() ? nan : std::stod(f[c]); };
+        if (std::stoi(f[cFace]) != static_cast<int>(estimable.size()))
+            throw std::runtime_error("exportErrorsAsPly: face_id fuori ordine in " + errorsCsv);
+        const double Le = num(cLe), Te = num(cTe), Lt = num(cLt), Tt = num(cTt);
+        estimable.push_back(std::stoi(f[cEst]));
+        angle.push_back(static_cast<float>(num(cAng)));
+        cvL.push_back(static_cast<float>(100 * (Le - Lt) / Lt));
+        ratio.push_back(static_cast<float>(100 * (Le / Te - Lt / Tt) / (Lt / Tt)));
+    }
+    if (estimable.size() != faces.size())
+        throw std::runtime_error("exportErrorsAsPly: " + std::to_string(estimable.size()) + " righe in " + errorsCsv
+                                 + ", " + std::to_string(faces.size()) + " facce nella mesh");
+
+    std::vector<float> x(vPos.size()), y(vPos.size()), z(vPos.size());
+    for (int i = 0; i < vPos.size(); ++i) { x[i] = vPos[i].x; y[i] = vPos[i].y; z[i] = vPos[i].z; }
+    std::vector<std::vector<int>> vertex_indices(faces.size());
+    for (int i = 0; i < faces.size(); ++i) vertex_indices[i] = {faces[i].a, faces[i].b, faces[i].c};
+
+    happly::PLYData ply;
+    ply.addElement("vertex", vPos.size());
+    auto& v = ply.getElement("vertex");
+    v.addProperty<float>("x", x);
+    v.addProperty<float>("y", y);
+    v.addProperty<float>("z", z);
+    ply.addElement("face", faces.size());
+    auto& f = ply.getElement("face");
+    f.addListProperty<int>("vertex_indices", vertex_indices);
+    f.addProperty<int>("estimable", estimable);
+    f.addProperty<float>("err_angle", angle);
+    f.addProperty<float>("err_cv_l", cvL);
+    f.addProperty<float>("err_rapporto", ratio);
+    ply.comments.push_back("errori per faccia da " + errorsCsv);
+
+    const std::filesystem::path out(filename);
+    if (out.has_parent_path()) std::filesystem::create_directories(out.parent_path());
+    ply.write(filename, happly::DataFormat::Binary);
 }
 
 void Mesh::exportAsPly(const std::string &filename) const {

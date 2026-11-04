@@ -31,7 +31,7 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
 
     const std::set<std::string> known = {
         "experiment_id", "lat_ply", "ground_truth_ply", "maps",
-        "mask.min_singular_value", "output_csv"};
+        "mask.min_singular_value", "output_csv", "output_ply"};
     std::map<std::string, std::string> kv;
 
     std::string line;
@@ -54,6 +54,7 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
     c.latPly = kv["lat_ply"];
     c.groundTruthPly = kv["ground_truth_ply"];
     c.outputCsv = kv["output_csv"];
+    c.outputPly = kv["output_ply"];
     if (kv["maps"] == "all") c.allMaps = true;
     else c.maps = parseMapList(kv["maps"]);
     c.minSingularValue = std::stod(kv["mask.min_singular_value"]);

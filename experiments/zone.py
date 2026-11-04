@@ -3,7 +3,7 @@
 Genera un .conf per ogni scenario aniso_zone_N.
 
 Modello: experiments/aniso_const.conf (tutte le mappe). Si cambiano solo
-experiment_id, lat_ply, ground_truth_ply e output_csv; il commento in testa al
+experiment_id, lat_ply, ground_truth_ply, output_csv e output_ply (none); il commento in testa al
 modello non si copia, al suo posto una riga che dice quale scenario e'.
 
 Uso, dalla radice del repository:
@@ -30,7 +30,8 @@ def main():
         new = {"experiment_id": exp_id,
                "lat_ply": f"data/reference/LA_LAT_{exp_id}.ply",
                "ground_truth_ply": f"data/reference/LA_GT_{exp_id}.ply",
-               "output_csv": f"output/zone/{exp_id}/errors.csv"}
+               "output_csv": f"output/zone/{exp_id}/errors.csv",
+               "output_ply": "none"}
         out = [f"# {exp_id}: tag di experiments/region_cv/aniso_random.csv, a caso su {n} zone; da experiments/zone.py", ""]
         for line in lines:
             key, sep, _ = line.partition("=")

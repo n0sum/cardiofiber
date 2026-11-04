@@ -3,8 +3,8 @@
 Genera un .conf per ogni sottoinsieme di k >= 3 mappe LAT (passo 2), oppure
 solo per i sottoinsiemi di K mappe.
 
-Modello: il .conf TEMPLATE. Si cambiano solo experiment_id, maps e
-output_csv; ingressi e soglie restano quelli.
+Modello: il .conf TEMPLATE. Si cambiano solo experiment_id, maps,
+output_csv e output_ply (none); ingressi e soglie restano quelli.
 Il numero di mappe e' il numero di righe di pacing_sites.csv (la riga k e'
 la mappa k). Nessuna ground truth.
 
@@ -40,7 +40,8 @@ def main():
             exp_id = "sub_" + "-".join(map(str, subset))
             new = {"experiment_id": exp_id,
                    "maps": ",".join(map(str, subset)),
-                   "output_csv": f"{out_dir}/{exp_id}/errors.csv"}
+                   "output_csv": f"{out_dir}/{exp_id}/errors.csv",
+                   "output_ply": "none"}
             out = []
             for line in lines:
                 key, sep, _ = line.partition("=")

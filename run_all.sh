@@ -55,3 +55,10 @@ done
 ./estimator/build/Tesi0 output/roney/*/faccia/confs/*.conf
 python estimator/roney.py experiments/roney.conf aniso_const $(for n in $ZONE; do echo aniso_zone_$n; done)
 python analysis/analisi.py --roney                # -> output/roney/figure/
+
+# mappe degli errori per faccia in PLY, su aniso_const: sei mappe e, per braccio, le terne con
+# angolo q50 minimo e massimo (da output/roney/figure/terne.csv)
+python experiments/mappe.py | while read -r csv ply; do   # -> output/mappe/confs/*.conf
+    ./estimator/build/Tesi0 --ply data/reference/LA_LAT_aniso_const.ply "$csv" "$ply"
+done
+./estimator/build/Tesi0 output/mappe/confs/*.conf  # -> output/mappe/*.ply

@@ -30,8 +30,9 @@ dell'esperimento sta nei commenti in testa al file.
 | `maps`                      | `all`, oppure indici separati da virgola       |
 | `mask.min_singular_value`   | soglia sul valore singolare minimo del 3x3     |
 | `output_csv`                | dove scrivere gli errori per faccia            |
+| `output_ply`                | PLY degli errori per faccia, oppure `none`     |
 
-Tutte le 6 chiavi sono obbligatorie.
+Tutte le 7 chiavi sono obbligatorie.
 
 `ground_truth_ply` e' `data/reference/LA_GT_NOME.ply` dello scenario
 che ha prodotto `lat_ply`: fibra, CV_L, CV_T e tag per faccia, letti cosi'
@@ -76,7 +77,7 @@ fuori range e' un errore.
 
 Chiave sconosciuta (con `file:riga`) o mancante, file inesistente: errore,
 nessun default silenzioso. Se una chiave compare piu' volte vale l'ultima.
-La directory di `output_csv` viene creata se non esiste.
+Le directory di `output_csv` e `output_ply` vengono create se non esistono.
 
 Tutti i percorsi sono relativi alla radice del repository, e l'eseguibile
 si lancia da la'.
@@ -132,13 +133,33 @@ df.groupby("experiment_id")["err_angle"].median()
 chiave e' la coppia (`experiment_id`, `face_id`). `analysis/analisi.py`
 lavora su un esperimento alla volta.
 
+## PLY degli errori
+
+Se `output_ply` non e' `none`, dopo il CSV Tesi0 scrive un PLY binario
+little endian: per vertice `x y z` (mm), per faccia, nell'ordine di
+`face_id`, `vertex_indices`, `estimable` (int) e tre float con le
+definizioni di `load()` in `analysis/analisi.py`: `err_angle` (gradi),
+`err_cv_l` e `err_rapporto` (%, con segno, r = CV_L / CV_T). Sulle facce
+non stimabili i tre errori sono NaN. Il PLY si calcola rileggendo il CSV
+appena scritto, quindi i valori sono quelli del CSV arrotondati a float.
+
+Per un `errors.csv` scritto da altri (es. `estimator/roney.py`):
+
+```bash
+./estimator/build/Tesi0 --ply MESH.ply ERRORS.csv OUT.ply
+```
+
+con `MESH.ply` un `lat_ply` della stessa mesh. Nei `.conf` di
+`subsets.py` e `zone.py` `output_ply` e' `none`; i PLY li chiede solo
+`mappe.py` (vedi *Mappe degli errori*).
+
 ## Sottoinsiemi di mappe
 
 `subsets.py TEMPLATE OUT_DIR [K]` scrive un `.conf` per ogni sottoinsieme di k >= 3 (o solo k = K) delle mappe
 (le righe di `simulator/stage1/pacing_sites.csv`; con sei mappe:
 20 + 15 + 6 + 1 = 42). Ogni file e'
-`aniso_const.conf` con cambiati solo `experiment_id`, `maps` e
-`output_csv`. L'ID e' `sub_` con gli indici uniti da trattino, es.
+`aniso_const.conf` con cambiati solo `experiment_id`, `maps`,
+`output_csv` e `output_ply` (`none`). L'ID e' `sub_` con gli indici uniti da trattino, es.
 `sub_0-2-4`: niente virgole, perche' `experiment_id` finisce non quotato
 nel CSV. `analysis/analisi.py --sottoinsiemi` etichetta i sottoinsiemi
 con gli stessi indici, uniti da `+` (es. `0+2+4`).
@@ -170,8 +191,8 @@ Gli scenari `aniso_zone_N`, N = 43270, 10000, 2500, 600, 150, 40, seme 0,
 hanno le 25 combinazioni di `aniso_random.csv` assegnate per zona (vedi
 *Scenari*). `zone.py N ...` scrive un `.conf` per
 ciascuno in `output/zone/confs/`: `aniso_const.conf` con cambiati solo
-`experiment_id` (`aniso_zone_N`), `lat_ply`, `ground_truth_ply` e
-`output_csv` (`output/zone/aniso_zone_N/errors.csv`); al posto del commento
+`experiment_id` (`aniso_zone_N`), `lat_ply`, `ground_truth_ply`,
+`output_csv` (`output/zone/aniso_zone_N/errors.csv`) e `output_ply` (`none`); al posto del commento
 in testa al modello, una riga che dice quale scenario e'.
 Come per i sottoinsiemi, i `.conf` non sono in git: la ricetta e' lo
 script.
@@ -195,7 +216,19 @@ CV_L, rapporto) in funzione di d in scala log, q50 e q90, con il valore di
 Metodo 2 di Roney et al. 2019 su terne di mappe (`estimator/roney.py`,
 `experiments/roney.conf`; comandi in fondo a `run_all.sh`):
 `output/roney/SCENARIO/{roney,faccia}/sub_*/errors.csv`, confronto in
-`output/roney/figure/` (`analisi.py --roney`).
+`output/roney/figure/` (`analisi.py --roney`): `numeri.csv` per scenario e
+braccio, `terne.csv` per terna.
+
+## Mappe degli errori
+
+`mappe.py` sceglie, per braccio, le terne di `aniso_const` con angolo q50
+minimo e massimo in `output/roney/figure/terne.csv` (facce stimabili nei
+due bracci, i punti di `const.png`) e scrive in `output/mappe/confs/` i
+`.conf` dello stimatore per faccia: sei mappe e le sue due terne, con
+`output_ply` in `output/mappe/`. Per le due terne di Roney stampa
+`ERRORS_CSV OUT_PLY`, da passare a `Tesi0 --ply`. Comandi in fondo a
+`run_all.sh`; uscite `output/mappe/{faccia,roney}_{migliore,peggiore}_sub_i-j-k.ply`
+e `output/mappe/faccia_6_mappe.ply`.
 
 ## Perche' non JSON
 

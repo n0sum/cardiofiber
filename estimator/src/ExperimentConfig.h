@@ -8,6 +8,7 @@ struct ExperimentConfig {
     std::string sourcePath;             // il .conf, per i messaggi d'errore
     std::string experimentId;
     std::string latPly, groundTruthPly, outputCsv;
+    std::string outputPly;              // "none": nessun PLY degli errori
     bool allMaps = false;               // maps = all
     std::vector<int> maps;              // altrimenti gli indici, nell'ordine dato
     double minSingularValue = 0.0;      // sigma_min assoluta del sistema (fronti quasi paralleli)

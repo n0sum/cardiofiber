@@ -76,6 +76,10 @@ public:
     // riga: i CSV di esperimenti diversi si concatenano e si raggruppano senza perdere la provenienza.
     void exportErrorsAsCsv(const std::string& filename, const std::string& experimentId,
                            const std::vector<FaceAnisotropy>& est) const;
+    // PLY binario con gli errori per faccia letti da un errors.csv (di exportErrorsAsCsv o di estimator/roney.py)
+    // sulla mesh importata: per faccia estimable, err_angle (gradi), err_cv_l e err_rapporto (%, con segno,
+    // r = CV_L / CV_T), come load() in analysis/analisi.py; NaN sulle facce non stimabili.
+    void exportErrorsAsPly(const std::string& errorsCsv, const std::string& filename) const;
 
 
     //processing
