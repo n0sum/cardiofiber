@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 """
 Metodo 2 di Roney et al. 2019 su terne di mappe LAT, per il confronto con lo
-stimatore per faccia (estimator/src). Due bracci, sugli stessi gradienti:
-
-  roney  patch geodetica, fit planare per mappa, ellisse centrata sui vettori
-         velocita' g / |g|^2
-  patch  gli stessi gradienti nel sistema lineare dello stimatore C++
-         (ellisse sui gradienti)
+stimatore per faccia (estimator/src): patch geodetica, fit planare per
+mappa, ellisse centrata sui vettori velocita' g / |g|^2.
 
 Con tre punti la conica passa esattamente per tutti e tre: e' anche la
 soluzione del fit a residui radiali di Roney, quindi l'algoritmo genetico non
@@ -16,7 +12,7 @@ Uso, dalla radice del repository:
     python estimator/roney.py experiments/roney.conf aniso_const aniso_zone_40 ...
 Legge data/reference/LA_LAT_SCENARIO.ply e, solo dopo la stima,
 data/reference/LA_GT_SCENARIO.ply. Scrive
-output/roney/SCENARIO/BRACCIO/sub_i-j-k/errors.csv, con le colonne di
+output/roney/SCENARIO/roney/sub_i-j-k/errors.csv, con le colonne di
 exportErrorsAsCsv in Mesh.cpp.
 
 Unita': gradienti in ms/mm, velocita' in mm/ms.
@@ -118,9 +114,9 @@ def geometry(V, F, radius, n_points, seed):
     return pts, XY, A, nrm / np.linalg.norm(nrm, axis=1)[:, None], area
 
 
-def estimate(X, ok, A, nrm, inverse, min_sv):
-    """X: (nf, 3, 2) vettori x_k, ok: (nf,) tutte e tre le mappe valide.
-    Conica x^T P x = 1 per i tre punti; M = P (patch) o P^-1 (roney)."""
+def estimate(X, ok, A, nrm, min_sv):
+    """X: (nf, 3, 2) vettori velocita', ok: (nf,) tutte e tre le mappe valide.
+    Conica x^T P x = 1 per i tre punti; un'ellisse di semiassi CV_L, CV_T ha conica M^-1, M = P^-1."""
     R = np.stack([X[..., 0] ** 2, np.sqrt(2) * X[..., 0] * X[..., 1], X[..., 1] ** 2], axis=-1)
     R[~ok] = np.eye(3)                                    # righe fittizie: la faccia resta non stimabile
     ok = ok & (np.linalg.svd(R, compute_uv=False)[:, -1] > min_sv)
@@ -131,12 +127,7 @@ def estimate(X, ok, A, nrm, inverse, min_sv):
     lp, U = np.linalg.eigh(P)                             # crescenti; M ha gli stessi autovettori
     ok = ok & (lp[:, 0] > 0)
     lp = np.where(ok[:, None], lp, 1.0)
-    if inverse:
-        lam, fib2 = 1 / lp[:, 0], U[:, :, 0]               # lambda1 di M = 1 / autovalore minore di P
-        lam2 = 1 / lp[:, 1]
-    else:
-        lam, fib2 = lp[:, 1], U[:, :, 1]
-        lam2 = lp[:, 0]
+    lam, lam2, fib2 = 1 / lp[:, 0], 1 / lp[:, 1], U[:, :, 0]   # lambda1 di M = 1 / autovalore minore di P
     f = np.einsum("fij,fj->fi", A, fib2)
     f -= np.sum(f * nrm, axis=1)[:, None] * nrm
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -178,25 +169,22 @@ def main():
         for sub in itertools.combinations(range(n_maps), 3):
             s = list(sub)
             k_used, ok = valid[:, s].sum(axis=1), valid[:, s].all(axis=1)
-            for arm, inverse in (("roney", True), ("patch", False)):
-                x = g[:, s]
-                if inverse:
-                    with np.errstate(divide="ignore", invalid="ignore"):
-                        x = x / (x ** 2).sum(axis=-1, keepdims=True)
-                x = np.where(ok[:, None, None], x, 0.0)
-                results[arm, sub] = (k_used, *estimate(x, ok, A, nrm, inverse, conf["mask.min_singular_value"]))
+            with np.errstate(divide="ignore", invalid="ignore"):
+                x = g[:, s] / (g[:, s] ** 2).sum(axis=-1, keepdims=True)
+            x = np.where(ok[:, None, None], x, 0.0)
+            results[sub] = (k_used, *estimate(x, ok, A, nrm, conf["mask.min_singular_value"]))
 
         gt = read_ply(ROOT / "data" / "reference" / f"LA_GT_{scenario}.ply")["face"]
         fgt = np.stack([gt[k] for k in ("fx", "fy", "fz")], axis=1).astype(np.float64)
-        for (arm, sub), (k_used, ok, cvl, cvt, f) in results.items():
-            exp_id = f"{arm}_sub_" + "-".join(map(str, sub))
+        for sub, (k_used, ok, cvl, cvt, f) in results.items():
+            exp_id = "roney_sub_" + "-".join(map(str, sub))
             ang = np.degrees(np.arccos(np.minimum(1, np.abs(np.sum(f * fgt, axis=1)))))
             df = pd.DataFrame({"experiment_id": exp_id, "face_id": np.arange(len(F)), "area": area,
                                "region_tag": gt["elem_tag"], "estimable": ok.astype(int), "k_used": k_used,
                                "cond": np.nan, "CV_L_est": np.where(ok, cvl, np.nan),
                                "CV_T_est": np.where(ok, cvt, np.nan), "CV_L_true": gt["CV_L"],
                                "CV_T_true": gt["CV_T"], "err_angle": np.where(ok, ang, np.nan)})[COLUMNS]
-            out = ROOT / "output" / "roney" / scenario / arm / ("sub_" + "-".join(map(str, sub)))
+            out = ROOT / "output" / "roney" / scenario / "roney" / ("sub_" + "-".join(map(str, sub)))
             out.mkdir(parents=True, exist_ok=True)
             df.to_csv(out / "errors.csv", index=False, float_format="%.9e")
 
