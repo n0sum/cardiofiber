@@ -219,17 +219,18 @@ def roney():
             area = next(iter(runs["faccia"].values()))["area"].sum()
             d = np.sqrt(4 * area / (np.pi * int(sc.removeprefix("aniso_zone_"))))
         for arm in ARMS:
-            paired, nonstim, tot = [], 0.0, 0.0
+            paired, nonstim, both_area, tot = [], 0.0, 0.0, 0.0
             for sub, df in runs[arm].items():
                 both = (runs["roney"][sub]["estimable"] == 1) & (runs["patch"][sub]["estimable"] == 1) \
                        & (runs["faccia"][sub]["estimable"] == 1)
                 paired.append(df[both])
                 nonstim += masks(df, 3)[0] * df["area"].sum()
+                both_area += df["area"][both].sum()
                 tot += df["area"].sum()
                 per_sub.append({"scenario": sc, "braccio": arm, "sub": sub,
                                 "area_non_stimabile_%": masks(df, 3)[0], **quantiles(df[both])})
             rows.append({"scenario": sc, "braccio": arm, "d": d, "area_non_stimabile_%": nonstim / tot,
-                         **quantiles(pd.concat(paired))})
+                         "area_appaiata_%": 100 * both_area / tot, **quantiles(pd.concat(paired))})
     r, s = pd.DataFrame(rows), pd.DataFrame(per_sub)
     out_dir = RONEY / "figure"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -274,9 +275,10 @@ def roney():
         ax.set_ylabel(ylabel)
         ax.set_ylim(bottom=0)
         ax.grid(alpha=0.3, which="both")
-        ax.legend(frameon=False, fontsize=8)
+    handles, labels = axes[1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=6, frameon=False)
     fig.suptitle("aniso_zone_N, 3 mappe: terne messe insieme, facce stimabili nei tre bracci")
-    plt.tight_layout()
+    plt.tight_layout(rect=(0, 0.08, 1, 1))
     plt.savefig(out_dir / "zone.png", dpi=140)
     plt.close()
 
