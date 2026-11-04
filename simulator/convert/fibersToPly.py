@@ -3,16 +3,17 @@
 Esporta mesh + ground truth di uno scenario in un PLY binario leggibile con happly.
 
 Per FACCIA: fibra (fx, fy, fz), CV vere (CV_L, CV_T, mm/ms) e tag di regione
-(elem_tag). Le CV vengono da experiments/region_cv/SCENARIO.csv, lo stesso
-CSV da cui run_sims.py costruisce le gregion: ogni tag della mesh deve
-comparirvi. Scrive data/reference/LA_GT_SCENARIO.ply.
+(elem_tag). Le CV vengono da CSV, lo stesso da cui run_sims.py costruisce
+le gregion: ogni tag della mesh deve comparirvi. Scrive
+data/reference/LA_GT_NOME.ply.
 
 Geometria e fibre vengono da data/augmenta/, i tag per faccia da
 MESH_BASE.elem (la mesh in um su cui ha girato run_sims.py), che deve avere
 gli stessi triangoli.
 
 Uso, dalla radice del repository:
-    python simulator/convert/fibersToPly.py aniso_const data/reference/LA_um
+    python simulator/convert/fibersToPly.py NOME CSV MESH_BASE
+    python simulator/convert/fibersToPly.py aniso_const experiments/region_cv/aniso_const.csv data/reference/LA_um
 
 Legge le fonti CANONICHE del bundle (file testuali openCARP), non i .vtk:
 i .vtk passati per pyvista possono attraversare filtri che riordinano le
@@ -33,7 +34,6 @@ import numpy as np
 # ---------------------------------------------------------------- percorsi
 ROOT      = Path(__file__).resolve().parents[2]           # radice del repository
 MESH_BASE = ROOT / "data" / "augmenta"  / "LA_endo_with_fiber"   # senza estensione
-CV_DIR    = ROOT / "experiments" / "region_cv"             # SCENARIO.csv
 # --------------------------------------------------------------------------
 
 
@@ -73,8 +73,8 @@ def read_lon(path, n_faces):
 
 
 def main():
-    scenario, tag_base = sys.argv[1], sys.argv[2]
-    out_path = ROOT / "data" / "reference" / f"LA_GT_{scenario}.ply"
+    name, cv_csv, tag_base = sys.argv[1], sys.argv[2], sys.argv[3]
+    out_path = ROOT / "data" / "reference" / f"LA_GT_{name}.ply"
     mesh_base = str(MESH_BASE)
 
     pts            = read_pts(mesh_base + ".pts")
@@ -96,10 +96,10 @@ def main():
 
     # ---- CV vere per faccia dal tag ----------------------------------------
     cv = {int(r["region_tag"]): (float(r["CV_L"]), float(r["CV_T"]))
-          for r in csv.DictReader(l for l in open(CV_DIR / f"{scenario}.csv") if not l.startswith("#"))}
+          for r in csv.DictReader(l for l in open(cv_csv) if not l.startswith("#"))}
     missing = set(np.unique(elem_tag).tolist()) - cv.keys()
     if missing:
-        raise SystemExit(f"tag {sorted(missing)} assenti da {CV_DIR / scenario}.csv")
+        raise SystemExit(f"tag {sorted(missing)} assenti da {cv_csv}")
     cv_l = np.array([cv[t][0] for t in elem_tag], dtype=np.float32)
     cv_t = np.array([cv[t][1] for t in elem_tag], dtype=np.float32)
 
@@ -123,7 +123,7 @@ def main():
 
     header = ["ply", "format binary_little_endian 1.0"]
     header.append(f"comment mesh {mesh_base}, tag da {tag_base}.elem")
-    header.append(f"comment ground truth: fibre per faccia dal .lon, CV da {CV_DIR / scenario}.csv")
+    header.append(f"comment ground truth: fibre per faccia dal .lon, CV da {cv_csv}")
     header.append(f"element vertex {n_verts}")
     header += ["property float x", "property float y", "property float z"]
     header.append(f"element face {n_faces}")

@@ -15,18 +15,27 @@ if [ ! -f data/augmenta/LA_endo_with_fiber.pts ]; then
 fi
 
 python simulator/stage1/opencarp/mm_to_um.py      # -> data/reference/LA_um.*
-python simulator/stage1/opencarp/random_tags.py aniso_random 0   # -> data/reference/aniso_random/LA_um.*
+python simulator/stage1/opencarp/random_tags.py aniso_random experiments/region_cv/aniso_random.csv 0 43270   # -> data/reference/aniso_random/LA_um.*
 
-# scenario: experiments/region_cv/SCENARIO.csv, simulato sulla mesh MESH_BASE (in um, con i tag dello scenario)
+# numero di zone degli scenari aniso_zone_N (43270 = una zona per faccia)
+ZONE="43270 10000 2500 600 150 40"
+for n in $ZONE; do
+    python simulator/stage1/opencarp/random_tags.py aniso_zone_$n experiments/region_cv/aniso_random.csv 0 $n   # -> data/reference/aniso_zone_$n/LA_um.*
+done
+
+# scenario NOME: velocita' per tag da CSV, simulato sulla mesh MESH_BASE (in um, con i tag dello scenario)
 simula() {
-    s=$1; mesh=$2
-    python simulator/stage1/opencarp/run_sims.py experiments/region_cv/$s.csv $mesh   # -> data/reference/sims/$s/run_*/act.igb
-    python simulator/convert/multiLatToPly.py $s                                      # -> data/reference/LA_LAT_$s.ply
-    python simulator/convert/fibersToPly.py $s $mesh                                  # -> data/reference/LA_GT_$s.ply
+    s=$1; csv=$2; mesh=$3
+    python simulator/stage1/opencarp/run_sims.py $s $csv $mesh   # -> data/reference/sims/$s/run_*/act.igb
+    python simulator/convert/multiLatToPly.py $s                 # -> data/reference/LA_LAT_$s.ply
+    python simulator/convert/fibersToPly.py $s $csv $mesh        # -> data/reference/LA_GT_$s.ply
 }
-simula aniso_const    data/reference/LA_um
-simula aniso_regional data/reference/LA_um
-simula aniso_random   data/reference/aniso_random/LA_um
+simula aniso_const    experiments/region_cv/aniso_const.csv    data/reference/LA_um
+simula aniso_regional experiments/region_cv/aniso_regional.csv data/reference/LA_um
+simula aniso_random   experiments/region_cv/aniso_random.csv   data/reference/aniso_random/LA_um
+for n in $ZONE; do
+    simula aniso_zone_$n experiments/region_cv/aniso_random.csv data/reference/aniso_zone_$n/LA_um
+done
 
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build
@@ -47,3 +56,7 @@ done
 python experiments/subsets.py                     # -> output/subsets/confs/*.conf
 ./estimator/build/Tesi0 output/subsets/confs/*.conf
 python analysis/analisi.py --sottoinsiemi         # -> output/subsets/figure/
+
+python experiments/zone.py $ZONE                  # -> output/zone/confs/*.conf
+./estimator/build/Tesi0 output/zone/confs/*.conf
+python analysis/analisi.py --zone                 # -> output/zone/figure/

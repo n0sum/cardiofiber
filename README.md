@@ -259,9 +259,9 @@ attivo, esegue i passi 3-6 in ordine a partire da `data/augmenta/`. Se
 
 ```bash
 python simulator/stage1/opencarp/mm_to_um.py   # -> data/reference/LA_um.{pts,elem,lon}
-python simulator/stage1/opencarp/random_tags.py aniso_random 0
+python simulator/stage1/opencarp/random_tags.py aniso_random experiments/region_cv/aniso_random.csv 0 43270
                                                # -> data/reference/aniso_random/LA_um.{pts,elem,lon}
-python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv data/reference/LA_um
+python simulator/stage1/opencarp/run_sims.py aniso_const experiments/region_cv/aniso_const.csv data/reference/LA_um
                                                # -> data/reference/sims/aniso_const/run_k/act.igb
 ```
 
@@ -269,46 +269,52 @@ python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.c
 `LA_endo_with_fiber.pts` (vedi *Unita' di misura*); `.elem` e `.lon` si
 copiano invariati.
 
-`random_tags.py SCENARIO SEED` assegna a ogni triangolo di
-`data/reference/LA_um` uno dei tag di `experiments/region_cv/SCENARIO.csv`,
-a caso con la stessa probabilita' (`numpy.random.default_rng(SEED)`), e
-scrive la mesh in `data/reference/SCENARIO/LA_um`: stessi punti, fibre e
-triangoli, nuovo tag. Il seme (0) sta solo in `run_all.sh`.
+`random_tags.py NOME CSV SEED N` divide `data/reference/LA_um` in N zone:
+sceglie N facce a caso come centri e assegna ogni faccia al centro piu'
+vicino (distanza euclidea fra baricentri, `scipy.spatial.cKDTree`); poi
+da' a ogni zona uno dei tag di `CSV`, a caso con la stessa probabilita'.
+Centri e tag vengono dallo stesso `numpy.random.default_rng(SEED)`. Scrive
+la mesh in `data/reference/NOME/LA_um`: stessi punti, fibre e triangoli,
+nuovo tag. N = 43270, il numero di facce, da' una zona per faccia: e'
+`aniso_random`. Semi e N stanno solo in `run_all.sh`.
 
-`run_sims.py SCENARIO.csv MESH_BASE` simula lo scenario sulla mesh in um
-`MESH_BASE` (senza estensione), i cui tag devono essere quelli del CSV:
-`data/reference/LA_um` per `aniso_const` e `aniso_regional`,
-`data/reference/aniso_random/LA_um` per `aniso_random`.
+`run_sims.py NOME CSV MESH_BASE` simula le velocita' per tag di `CSV` sulla
+mesh in um `MESH_BASE` (senza estensione), i cui tag devono essere quelli
+del CSV: `data/reference/LA_um` per `aniso_const` e `aniso_regional`,
+`data/reference/NOME/LA_um` per `aniso_random` e `aniso_zone_N`. `NOME`
+decide la cartella delle run, `data/reference/sims/NOME/`.
 
 `run_sims.py` lancia `simulator/stage1/opencarp/run_eik.sh` una volta per
 riga di `simulator/stage1/pacing_sites.csv`: sei run eikonali (FIM), un
 sito di pacing ciascuno, ognuna in pochi decimi di secondo. Il CSV ha la
 sola colonna `cell_id`: il punto di stimolo e' il baricentro di quella
 cella sulla mesh in um, arrotondato all'intero. La riga k del CSV e' la
-run `run_k` e la mappa `lat_k` in `LA_LAT_SCENARIO.ply`. Modalita' eikonale pura: le velocita'
+run `run_k` e la mappa `lat_k` in `LA_LAT_NOME.ply`. Modalita' eikonale pura: le velocita'
 si impongono direttamente con `gregion[].dream.vel_l / vel_t / vel_n`, in
 **mm/s**.
 
 Le CV hanno una sola fonte, il CSV dello scenario in
-`experiments/region_cv/` (`region_tag,CV_L,CV_T`, in **mm/ms**): il nome
-dello scenario e' il nome del CSV. `run_sims.py` ne costruisce una
+`experiments/region_cv/` (`region_tag,CV_L,CV_T`, in **mm/ms**); il nome
+dello scenario e' un argomento a parte, perche' piu' scenari
+(`aniso_random`, `aniso_zone_N`) usano lo stesso CSV. `run_sims.py` ne costruisce una
 gregion per tag, con `vel_l = CV_L*1000` e `vel_t = vel_n = CV_T*1000`;
 e' l'unico punto della conversione. Dagli stessi tag costruisce l'unico
 dominio eikonale (`phys_region`). `run_eik.sh` non contiene ne' velocita'
 ne' tag. Lo stesso CSV da' le CV vere per faccia della ground truth
 (passo 4). Gli scenari sono in *Ground truth*; `run_all.sh` li simula e
-stima tutti e tre.
+stima tutti.
 
 ### 4. Conversione in PLY
 
 ```bash
 python simulator/convert/multiLatToPly.py aniso_const                        # -> data/reference/LA_LAT_aniso_const.ply
-python simulator/convert/fibersToPly.py aniso_const data/reference/LA_um     # -> data/reference/LA_GT_aniso_const.ply
+python simulator/convert/fibersToPly.py aniso_const experiments/region_cv/aniso_const.csv data/reference/LA_um
+                                                                             # -> data/reference/LA_GT_aniso_const.ply
 ```
 
-`LA_GT_SCENARIO.ply` ha, per faccia, la fibra normalizzata (`fx fy fz`),
+`LA_GT_NOME.ply` ha, per faccia, la fibra normalizzata (`fx fy fz`),
 le CV vere dello scenario (`CV_L CV_T`, dal CSV per tag) e `elem_tag`. Lo
-stimatore la legge cosi' com'e'. `fibersToPly.py SCENARIO MESH_BASE`
+stimatore la legge cosi' com'e'. `fibersToPly.py NOME CSV MESH_BASE`
 prende geometria e fibre da `data/augmenta/` e i tag per faccia da
 `MESH_BASE.elem`, la stessa mesh passata a `run_sims.py`; si ferma se i
 triangoli di `MESH_BASE.elem` non coincidono con quelli di
@@ -388,6 +394,14 @@ python experiments/subsets.py
 python analysis/analisi.py --sottoinsiemi
 ```
 
+Poi la dimensione delle zone di anisotropia (vedi `experiments/README.md`):
+
+```bash
+python experiments/zone.py 43270 10000 2500 600 150 40
+./estimator/build/Tesi0 output/zone/confs/*.conf
+python analysis/analisi.py --zone
+```
+
 ---
 
 ## Esperimenti
@@ -422,14 +436,15 @@ servono note e controllabili, non anatomicamente corrette.
 
 ### Scenari
 
-Le CV vere dipendono dallo scenario: `experiments/region_cv/SCENARIO.csv`
-(`region_tag,CV_L,CV_T`, mm/ms), uno per `.conf` di `experiments/`.
+Le CV vere dipendono dallo scenario: un CSV di `experiments/region_cv/`
+(`region_tag,CV_L,CV_T`, mm/ms).
 
 | scenario         | tag                         | CV                                                        |
 |------------------|-----------------------------|-----------------------------------------------------------|
 | `aniso_const`    | 1-7 di AugmentA             | uniformi, CV_L 1.05, CV_T 0.525 mm/ms (r = 2)             |
 | `aniso_regional` | 1-7 di AugmentA             | costanti a tratti per tag, costrutto di test (r da 1.25 a 2.5) |
 | `aniso_random`   | 1-25, a caso per faccia     | CV_L = 1.05 x (0.8 ... 1.2), r = 2.0 x (0.8 ... 1.2), tutte le 25 combinazioni; tag 13 = `aniso_const` |
+| `aniso_zone_N`   | 1-25, a caso per zona, N zone | come `aniso_random`, stesso CSV; N = 43270, 10000, 2500, 600, 150, 40 |
 
 ### Tag di regione
 
@@ -441,7 +456,8 @@ indici. Facce per tag (`aniso_const`, `aniso_regional`):
 ```
 
 In `aniso_random` i tag sono quelli di `random_tags.py`, circa 1/25
-delle 43270 facce ciascuno (~1730).
+delle 43270 facce ciascuno (~1730). In `aniso_zone_N` sono per zona: con
+N piccolo le proporzioni fra tag oscillano di piu'.
 
 ### Unita' di misura
 

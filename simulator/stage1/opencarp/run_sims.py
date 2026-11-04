@@ -8,19 +8,19 @@ cella, non per coordinate (allo stadio 2 gli indici restano, le coordinate
 cambiano). La riga k del CSV e' la mappa k.
 
 Le CV vengono dal CSV dello scenario (region_tag,CV_L,CV_T in mm/ms), unica
-fonte: qui si convertono in mm/s per openCARP, una gregion per tag. Il nome
-dello scenario e' il nome del CSV. Dagli stessi tag viene l'unico dominio
-eikonale (phys_region).
+fonte: qui si convertono in mm/s per openCARP, una gregion per tag. Dagli
+stessi tag viene l'unico dominio eikonale (phys_region).
 
 MESH_BASE e' la mesh in um senza estensione: i suoi tag per faccia devono
 essere quelli del CSV.
 
-Le run finiscono in data/reference/sims/SCENARIO/run_k/. openCARP non ha
+Le run finiscono in data/reference/sims/NOME/run_k/. openCARP non ha
 un'opzione per sovrascrivere una run esistente, quindi la cartella si
 cancella prima.
 
 Uso, dalla radice del repository:
-    python simulator/stage1/opencarp/run_sims.py experiments/region_cv/aniso_const.csv data/reference/LA_um
+    python simulator/stage1/opencarp/run_sims.py NOME CSV MESH_BASE
+    python simulator/stage1/opencarp/run_sims.py aniso_const experiments/region_cv/aniso_const.csv data/reference/LA_um
 """
 
 import csv
@@ -62,9 +62,10 @@ def region_args(cv_csv):
 
 
 def main():
-    cv_csv = Path(sys.argv[1]).resolve()
-    mesh_um = Path(sys.argv[2]).resolve()
-    sims_dir = SIMS_DIR / cv_csv.stem
+    name = sys.argv[1]
+    cv_csv = Path(sys.argv[2]).resolve()
+    mesh_um = Path(sys.argv[3]).resolve()
+    sims_dir = SIMS_DIR / name
     regions = region_args(cv_csv)
     pts = np.loadtxt(f"{mesh_um}.pts", skiprows=1, dtype=np.float64)
     tri = np.loadtxt(f"{mesh_um}.elem", skiprows=1, usecols=(1, 2, 3), dtype=np.int64)

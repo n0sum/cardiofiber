@@ -13,9 +13,15 @@ Uso, dalla radice del repository:
     python analysis/analisi.py --sottoinsiemi
         -> output/subsets/figure/{area_non_stimabile,angolo,cv_l,rapporto}.png, numeri.csv
            da output/subsets/sub_*/errors.csv (generati da experiments/subsets.py)
+    python analysis/analisi.py --zone
+        -> output/zone/figure/{zone.png, numeri.csv}
+           da output/zone/aniso_zone_*/errors.csv (generati da experiments/zone.py)
 
 Sottoinsiemi: confronto APPAIATO, gli errori di ogni sottoinsieme si calcolano
 sulle facce stimabili sia in esso sia in sub_0-1-2-3-4-5.
+
+Zone: per ogni aniso_zone_N il diametro medio di zona d = sqrt(4 A / (pi N)),
+A = area totale in mm^2; riferimento orizzontale: aniso_const.
 """
 
 import argparse
@@ -30,6 +36,7 @@ import matplotlib.pyplot as plt
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
 K = len(pd.read_csv(ROOT / "simulator" / "stage1" / "pacing_sites.csv"))   # mappe totali
 SUBSETS = ROOT / "output" / "subsets"
+ZONE = ROOT / "output" / "zone"
 ERRORS = {"angolo": "errore angolare [gradi]",
           "cv_l": "errore relativo su CV_L [%]",
           "rapporto": "errore relativo su CV_L / CV_T [%]"}
@@ -156,17 +163,58 @@ def subsets():
                "facce stimabili nel sottoinsieme e con tutte le mappe")
 
 
+def zone():
+    rows = []
+    for d in ZONE.glob("aniso_zone_*"):
+        df = load(d / "errors.csv")
+        n = int(d.name.removeprefix("aniso_zone_"))
+        nonstim, excl = masks(df, K)
+        rows.append({"N": n, "d": np.sqrt(4 * df["area"].sum() / (np.pi * n)),
+                     "area_non_stimabile_%": nonstim, "coppie_escluse_%": excl, **quantiles(df)})
+    z = pd.DataFrame(rows).sort_values("d")
+    out_dir = ZONE / "figure"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    z.to_csv(out_dir / "numeri.csv", index=False, float_format="%.6g")
+
+    c = load(ROOT / "output" / "aniso_const" / "errors.csv")
+    ref = {"area_non_stimabile_%": masks(c, K)[0], **quantiles(c)}
+
+    fig, axes = plt.subplots(1, 4, figsize=(18, 4.5))
+    panels = [("area non stimabile [%]", [("area_non_stimabile_%", "o", "#2a78d6", None)])]
+    for e, label in ERRORS.items():
+        panels.append((label + (", valore assoluto" if e != "angolo" else ""),
+                       [(f"{e}_q50", "o", "#2a78d6", "q50"), (f"{e}_q90", "^", "#eb6834", "q90")]))
+    for ax, (ylabel, cols) in zip(axes, panels):
+        for col, marker, color, label in cols:
+            ax.plot(z["d"], z[col], marker=marker, color=color, lw=1, label=label)
+            ax.axhline(ref[col], color=color, lw=1, ls="--")
+        ax.set_xscale("log")
+        ax.set_xlabel("diametro medio di zona d [mm]")
+        ax.set_ylabel(ylabel)
+        ax.set_ylim(bottom=0)
+        ax.grid(alpha=0.3, which="both")
+        if len(cols) > 1:
+            ax.legend(frameon=False)
+    fig.suptitle("aniso_zone_N: tratteggio = aniso_const")
+    plt.tight_layout()
+    plt.savefig(out_dir / "zone.png", dpi=140)
+    plt.close()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("experiment", nargs="?", help="nome della cartella in output/")
     ap.add_argument("--sottoinsiemi", action="store_true", help="confronto fra output/subsets/sub_*")
+    ap.add_argument("--zone", action="store_true", help="confronto fra output/zone/aniso_zone_*")
     args = ap.parse_args()
     if args.sottoinsiemi:
         subsets()
+    elif args.zone:
+        zone()
     elif args.experiment:
         experiment(args.experiment)
     else:
-        ap.error("serve ESPERIMENTO oppure --sottoinsiemi")
+        ap.error("serve ESPERIMENTO, --sottoinsiemi oppure --zone")
 
 
 if __name__ == "__main__":

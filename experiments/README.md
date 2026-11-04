@@ -34,28 +34,34 @@ dell'esperimento sta nei commenti in testa al file.
 
 Tutte le 7 chiavi sono obbligatorie.
 
-`ground_truth_ply` e' `data/reference/LA_GT_SCENARIO.ply` dello scenario
+`ground_truth_ply` e' `data/reference/LA_GT_NOME.ply` dello scenario
 che ha prodotto `lat_ply`: fibra, CV_L, CV_T e tag per faccia, letti cosi'
 come sono. Le soglie `mask.*` non hanno un default nel codice: esistono
 solo qui.
 
 ## Scenari
 
-Uno scenario e' un CSV `region_cv/SCENARIO.csv` (`region_tag,CV_L,CV_T`,
-mm/ms) piu' la mesh in um con quei tag, `MESH_BASE`:
+Uno scenario e' un nome `NOME`, un CSV `region_cv/*.csv`
+(`region_tag,CV_L,CV_T`, mm/ms) e la mesh in um con quei tag, `MESH_BASE`:
 
 | scenario         | `MESH_BASE`                         | `.conf`               |
 |------------------|-------------------------------------|-----------------------|
 | `aniso_const`    | `data/reference/LA_um`              | `aniso_const.conf`, `aniso_const_nomask.conf` |
 | `aniso_regional` | `data/reference/LA_um`              | `aniso_regional.conf` |
 | `aniso_random`   | `data/reference/aniso_random/LA_um` | `aniso_random.conf`, `aniso_random_nomask.conf` |
+| `aniso_zone_N`   | `data/reference/aniso_zone_N/LA_um` | generati da `zone.py`  |
+
+`aniso_const` e `aniso_regional` usano il CSV con il proprio nome;
+`aniso_random` e tutti gli `aniso_zone_N` usano `aniso_random.csv`.
 
 `aniso_random` ha 25 tag, tutte le combinazioni di 5 livelli di
 CV_L = 1.05 x (0.8, 0.9, 1.0, 1.1, 1.2) e 5 di r = CV_L/CV_T = 2.0 x (0.8,
 0.9, 1.0, 1.1, 1.2), CV_L esterno e r interno (tag 13 = `aniso_const`).
 La sua mesh la scrive `simulator/stage1/opencarp/random_tags.py
-aniso_random SEED`, un tag a caso per triangolo con la stessa
-probabilita'; il seme (0) sta solo in `run_all.sh`.
+aniso_random experiments/region_cv/aniso_random.csv 0 43270`: N zone
+attorno a N facce scelte a caso (faccia al centro piu' vicino), un tag a
+caso per zona con la stessa probabilita'; con N = 43270 ogni faccia e' una
+zona. Semi e N stanno solo in `run_all.sh`.
 `aniso_random.conf` e' `aniso_const.conf` con gli altri PLY, soglie uguali.
 `aniso_random_nomask.conf` e' `aniso_random.conf` con
 `mask.collision_angle_deg = 181`, come `aniso_const_nomask.conf`.
@@ -63,9 +69,9 @@ probabilita'; il seme (0) sta solo in `run_all.sh`.
 Per ogni scenario, dalla radice:
 
 ```bash
-python simulator/stage1/opencarp/run_sims.py experiments/region_cv/SCENARIO.csv MESH_BASE
-python simulator/convert/multiLatToPly.py SCENARIO     # -> lat_ply
-python simulator/convert/fibersToPly.py SCENARIO MESH_BASE   # -> ground_truth_ply
+python simulator/stage1/opencarp/run_sims.py NOME CSV MESH_BASE   # -> data/reference/sims/NOME/
+python simulator/convert/multiLatToPly.py NOME                    # -> lat_ply
+python simulator/convert/fibersToPly.py NOME CSV MESH_BASE        # -> ground_truth_ply
 ```
 
 `fibersToPly.py` prende geometria e fibre da `data/augmenta/` e i tag da
@@ -185,6 +191,31 @@ I `.conf` non sono in git: derivano in modo deterministico da
 script. Stanno in `output/subsets/confs/`, accanto ai risultati, e
 `output/` e' ignorato. `sub_0-1-2-3-4-5` deve dare lo stesso
 `errors.csv` di `aniso_const`, tolta `experiment_id`.
+
+## Dimensione delle zone
+
+Gli scenari `aniso_zone_N`, N = 43270, 10000, 2500, 600, 150, 40, seme 0,
+hanno le 25 combinazioni di `aniso_random.csv` assegnate per zona invece
+che per faccia (vedi *Scenari*). `zone.py N ...` scrive un `.conf` per
+ciascuno in `output/zone/confs/`: `aniso_random.conf` (maschera a 30
+gradi) con cambiati solo `experiment_id` (`aniso_zone_N`), `lat_ply`,
+`ground_truth_ply` e `output_csv` (`output/zone/aniso_zone_N/errors.csv`).
+Come per i sottoinsiemi, i `.conf` non sono in git: la ricetta e' lo
+script.
+
+```bash
+python experiments/zone.py 43270 10000 2500 600 150 40
+./estimator/build/Tesi0 output/zone/confs/*.conf
+python analysis/analisi.py --zone
+```
+
+`analisi.py --zone` calcola per ogni N il diametro medio di zona
+d = sqrt(4 A / (pi N)) in mm, A = area totale della mesh, e scrive in
+`output/zone/figure/`: `numeri.csv`, una riga per N con d, area non
+stimabile, coppie escluse, q50 e q90 dei tre errori e mediane con segno
+dei relativi; `zone.png`, quattro pannelli (area non stimabile, angolo,
+CV_L, rapporto) in funzione di d in scala log, q50 e q90, con il valore di
+`aniso_const` tratteggiato come riferimento.
 
 ## Perche' non JSON
 
