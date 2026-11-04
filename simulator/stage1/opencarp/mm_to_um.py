@@ -24,8 +24,6 @@ def main():
     np.savetxt(f"{DST}.pts", pts, fmt="%.4f", header=str(len(pts)), comments="")
     shutil.copyfile(f"{SRC}.elem", f"{DST}.elem")
     shutil.copyfile(f"{SRC}.lon", f"{DST}.lon")
-    print(f"scritto {DST}.{{pts,elem,lon}}   punti {len(pts)}")
-    print(f"  estensione (mm): {np.round((pts.max(0) - pts.min(0)) / 1000, 2)}")
 
 
 if __name__ == "__main__":

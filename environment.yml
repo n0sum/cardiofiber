@@ -1,6 +1,5 @@
 # Ambiente minimo: solo le dipendenze importate direttamente dagli script
-# Python del repository (simulator/, analysis/). Versioni dell'ambiente
-# "tesi" di sviluppo.
+# Python del repository. Versioni dell'ambiente "tesi" di sviluppo.
 #
 #   conda env create -f environment.yml
 #
@@ -20,23 +19,3 @@ dependencies:
   - pyvista=0.48.4
   - vtk=9.6.2
 
-# Stadio 3, estimator/fmap, non installato.
-# Da aggiungere quando estimator/fmap/ tornera' in uso:
-#
-#  - pip
-#  - pip:
-#      # geomstats da git, non da PyPI: la 2.8.0 di PyPI non funziona con
-#      # numpy >= 2 (ImportError: cannot import name 'trapz' from 'numpy');
-#      # questo commit di main (stessa versione 2.8.0) ha trapz -> trapezoid.
-#      - geomstats @ git+https://github.com/geomstats/geomstats.git@9941df0a37d900d540b7869d8c2898fca46266c8
-#      # geomfum 1.0.0; upstream ha torch come dipendenza core (~3 GB con CUDA),
-#      # piu' pyfmaps, potpourri3d, gsops, meshio
-#      - geomfum @ git+https://github.com/3diglab/geomfum.git@63737102c23a701d03d7c6ae00985a38c904bdb7
-#      # picking landmark headless (landmarks.py): con trame 4.x o trame-vtk < 2.11
-#      # plotter_ui() fallisce con "ValueError: Protocol does not exist yet";
-#      # pyvista 0.48.4 richiede trame-vtk < 2.11.9
-#      - trame==3.13.2
-#      - trame-server==3.15.0
-#      - trame-client==3.13.6
-#      - trame-vuetify==2.7.2
-#      - trame-vtk==2.11.8

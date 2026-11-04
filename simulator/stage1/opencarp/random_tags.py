@@ -13,7 +13,7 @@ triangoli e il nuovo tag.
 
 Uso, dalla radice del repository:
     python simulator/stage1/opencarp/random_tags.py NOME CSV SEED N
-    python simulator/stage1/opencarp/random_tags.py aniso_random experiments/region_cv/aniso_random.csv 0 43270
+    python simulator/stage1/opencarp/random_tags.py aniso_zone_43270 experiments/region_cv/aniso_random.csv 0 43270
 """
 
 import csv

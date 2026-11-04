@@ -18,7 +18,7 @@ using namespace glm;
 
 struct Face { int a, b, c; };
 
-// Stima dell'anisotropia di una faccia (stadio 5).
+// Stima dell'anisotropia di una faccia.
 // Base tangente locale, deterministica (dipende solo dall'ordine dei vertici memorizzato):
 //   e1 = p_b - p_a,  n = normalize(cross(e1, e2)),  u = normalize(e1),  w = cross(n, u)
 // Il tensore (mm^2/ms^2) si stima in questa base; fiber_dir e' riportata in 3D.
@@ -31,8 +31,9 @@ struct FaceAnisotropy {
     bool estimable = false;         // false: faccia lasciata marcata, campi non significativi
 };
 
-// Ground truth per faccia (stadio 6). Usata solo per la valutazione: mai passata allo stimatore.
-// region_tag e' solo un'etichetta di provenienza dei valori di CV.
+// Ground truth per faccia. Usata solo per la valutazione: mai passata allo stimatore.
+// region_tag e' il tag della zona di velocita' della faccia: la riga del CSV dello scenario
+// (experiments/region_cv/) da cui vengono CV_L e CV_T.
 struct FaceGroundTruth {
     vec3 fiber_dir = vec3(0);       // unitario (senza verso)
     float CV_L = 0.0f;              // mm/ms

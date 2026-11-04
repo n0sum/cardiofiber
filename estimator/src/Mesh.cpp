@@ -28,7 +28,7 @@ std::vector<vec3> normalizeVectors(const std::vector<vec3> &vectors) {
 }
 
 
-// Soglie strutturali della stima di anisotropia (stadio 5). Le soglie delle maschere
+// Soglie strutturali della stima di anisotropia. Le soglie delle maschere
 // vengono dal file di esperimento.
 namespace {
     constexpr int    kMinGradients       = 3;       // sotto: sistema sottodeterminato

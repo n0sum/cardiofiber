@@ -4,8 +4,7 @@ Una simulazione eikonale openCARP per ogni riga di pacing_sites.csv.
 
 Il punto di stimolo e' il baricentro della cella cell_id sulla mesh in um,
 arrotondato all'intero piu' vicino. I siti si definiscono per indice di
-cella, non per coordinate (allo stadio 2 gli indici restano, le coordinate
-cambiano). La riga k del CSV e' la mappa k.
+cella, non per coordinate. La riga k del CSV e' la mappa k.
 
 Le CV vengono dal CSV dello scenario (region_tag,CV_L,CV_T in mm/ms), unica
 fonte: qui si convertono in mm/s per openCARP, una gregion per tag. Dagli

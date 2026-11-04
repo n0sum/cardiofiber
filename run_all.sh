@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 #
 # Ricostruisce data/reference/ e output/ a partire dall'uscita di AugmentA
-# (data/augmenta/). Va lanciato con l'ambiente conda tesi attivo.
+# (data/augmenta/, nel repository). Va lanciato con l'ambiente conda tesi attivo.
 #
-# I passi prima di AugmentA (make_mean, split_atria, extract_la) e AugmentA
-# stesso (Docker + sessione desktop) restano a mano: vedi README passi 1-2.
+# Rigenerare l'uscita di AugmentA dall'SSM e' facoltativo e resta a mano:
+# vedi README.
 #
 set -euo pipefail
 cd "$(dirname "$0")"
 
 if [ ! -f data/augmenta/LA_endo_with_fiber.pts ]; then
-    echo "manca data/augmenta/LA_endo_with_fiber.*: serve prima AugmentA, a mano (README passo 2)"
+    echo "manca data/augmenta/LA_endo_with_fiber.pts: e' nel repository, il clone e' incompleto"
     exit 1
 fi
 
 python simulator/stage1/opencarp/mm_to_um.py      # -> data/reference/LA_um.*
-python simulator/stage1/opencarp/random_tags.py aniso_random experiments/region_cv/aniso_random.csv 0 43270   # -> data/reference/aniso_random/LA_um.*
 
 # numero di zone degli scenari aniso_zone_N (43270 = una zona per faccia)
 ZONE="43270 10000 2500 600 150 40"
@@ -30,9 +29,7 @@ simula() {
     python simulator/convert/multiLatToPly.py $s                 # -> data/reference/LA_LAT_$s.ply
     python simulator/convert/fibersToPly.py $s $csv $mesh        # -> data/reference/LA_GT_$s.ply
 }
-simula aniso_const    experiments/region_cv/aniso_const.csv    data/reference/LA_um
-simula aniso_regional experiments/region_cv/aniso_regional.csv data/reference/LA_um
-simula aniso_random   experiments/region_cv/aniso_random.csv   data/reference/aniso_random/LA_um
+simula aniso_const experiments/region_cv/aniso_const.csv data/reference/LA_um
 for n in $ZONE; do
     simula aniso_zone_$n experiments/region_cv/aniso_random.csv data/reference/aniso_zone_$n/LA_um
 done
@@ -41,16 +38,10 @@ cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const.conf
 ./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
-./estimator/build/Tesi0 experiments/aniso_regional.conf
-./estimator/build/Tesi0 experiments/aniso_random.conf
-./estimator/build/Tesi0 experiments/aniso_random_nomask.conf
+./estimator/build/Tesi0 experiments/aniso_zone_43270_nomask.conf
 
-for e in aniso_const aniso_const_nomask aniso_regional aniso_random aniso_random_nomask; do
+for e in aniso_const aniso_const_nomask aniso_zone_43270_nomask; do
     python analysis/analisi.py $e                 # -> output/$e/figure/
-done
-
-for e in aniso_random aniso_random_nomask; do
-    python analysis/vicini.py $e                  # -> output/$e/figure/vicini.csv
 done
 
 python experiments/subsets.py experiments/aniso_const.conf output/subsets   # -> output/subsets/confs/*.conf

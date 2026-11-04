@@ -2,7 +2,7 @@
 """
 Genera un .conf per ogni scenario aniso_zone_N.
 
-Modello: experiments/aniso_random.conf (tutte le mappe, maschera a 30 gradi).
+Modello: experiments/aniso_const.conf (tutte le mappe, maschera a 30 gradi).
 Si cambiano solo experiment_id, lat_ply, ground_truth_ply e output_csv.
 
 Uso, dalla radice del repository:
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
-TEMPLATE = ROOT / "experiments" / "aniso_random.conf"
+TEMPLATE = ROOT / "experiments" / "aniso_const.conf"
 CONF_DIR = ROOT / "output" / "zone" / "confs"
 
 

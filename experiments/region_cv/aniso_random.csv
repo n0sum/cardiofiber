@@ -3,7 +3,7 @@
 # Tutte le combinazioni di 5 livelli di CV_L = 1.05 x (0.8, 0.9, 1.0, 1.1, 1.2)
 # e 5 di r = CV_L/CV_T = 2.0 x (0.8, 0.9, 1.0, 1.1, 1.2); CV_T = CV_L / r.
 # CV_L esterno, r interno: il tag 13 e' aniso_const. I tag si assegnano a caso
-# per faccia con simulator/stage1/opencarp/random_tags.py.
+# per zona (scenari aniso_zone_N) con simulator/stage1/opencarp/random_tags.py.
 region_tag,CV_L,CV_T
 1,0.84,0.525
 2,0.84,0.466667

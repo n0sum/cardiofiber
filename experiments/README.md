@@ -44,26 +44,23 @@ solo qui.
 Uno scenario e' un nome `NOME`, un CSV `region_cv/*.csv`
 (`region_tag,CV_L,CV_T`, mm/ms) e la mesh in um con quei tag, `MESH_BASE`:
 
-| scenario         | `MESH_BASE`                         | `.conf`               |
-|------------------|-------------------------------------|-----------------------|
-| `aniso_const`    | `data/reference/LA_um`              | `aniso_const.conf`, `aniso_const_nomask.conf` |
-| `aniso_regional` | `data/reference/LA_um`              | `aniso_regional.conf` |
-| `aniso_random`   | `data/reference/aniso_random/LA_um` | `aniso_random.conf`, `aniso_random_nomask.conf` |
-| `aniso_zone_N`   | `data/reference/aniso_zone_N/LA_um` | generati da `zone.py`  |
+| scenario       | `MESH_BASE`                         | `.conf`                                       |
+|----------------|-------------------------------------|-----------------------------------------------|
+| `aniso_const`  | `data/reference/LA_um`              | `aniso_const.conf`, `aniso_const_nomask.conf` |
+| `aniso_zone_N` | `data/reference/aniso_zone_N/LA_um` | generati da `zone.py`; `aniso_zone_43270_nomask.conf` |
 
-`aniso_const` e `aniso_regional` usano il CSV con il proprio nome;
-`aniso_random` e tutti gli `aniso_zone_N` usano `aniso_random.csv`.
+`aniso_const` usa `aniso_const.csv`, tutti gli `aniso_zone_N` usano
+`aniso_random.csv`.
 
-`aniso_random` ha 25 tag, tutte le combinazioni di 5 livelli di
+`aniso_random.csv` ha 25 tag, tutte le combinazioni di 5 livelli di
 CV_L = 1.05 x (0.8, 0.9, 1.0, 1.1, 1.2) e 5 di r = CV_L/CV_T = 2.0 x (0.8,
 0.9, 1.0, 1.1, 1.2), CV_L esterno e r interno (tag 13 = `aniso_const`).
-La sua mesh la scrive `simulator/stage1/opencarp/random_tags.py
-aniso_random experiments/region_cv/aniso_random.csv 0 43270`: N zone
+La mesh di `aniso_zone_N` la scrive `simulator/stage1/opencarp/random_tags.py
+aniso_zone_N experiments/region_cv/aniso_random.csv 0 N`: N zone
 attorno a N facce scelte a caso (faccia al centro piu' vicino), un tag a
 caso per zona con la stessa probabilita'; con N = 43270 ogni faccia e' una
 zona. Semi e N stanno solo in `run_all.sh`.
-`aniso_random.conf` e' `aniso_const.conf` con gli altri PLY, soglie uguali.
-`aniso_random_nomask.conf` e' `aniso_random.conf` con
+`aniso_zone_43270_nomask.conf` e' il `.conf` di `aniso_zone_43270` con
 `mask.collision_angle_deg = 181`, come `aniso_const_nomask.conf`.
 
 Per ogni scenario, dalla radice:
@@ -116,8 +113,8 @@ Una faccia con meno di 3 righe rimaste e' non stimabile.
 
 `mask.collision_angle_deg = 181` non esclude nulla, senza codice speciale:
 l'angolo non supera mai 180. `aniso_const_nomask.conf` la usa come
-regressione, `aniso_random_nomask.conf` per misurare l'effetto della
-maschera sull'anisotropia casuale.
+regressione, `aniso_zone_43270_nomask.conf` per misurare l'effetto della
+maschera sull'anisotropia casuale per faccia.
 
 Le LAT negative (FIM non convergito, -1) vengono rifiutate a monte, da
 `simulator/convert/multiLatToPly.py`, prima di scrivere `lat_ply`.
@@ -195,9 +192,9 @@ script. Stanno in `output/subsets/confs/`, accanto ai risultati, e
 ## Dimensione delle zone
 
 Gli scenari `aniso_zone_N`, N = 43270, 10000, 2500, 600, 150, 40, seme 0,
-hanno le 25 combinazioni di `aniso_random.csv` assegnate per zona invece
-che per faccia (vedi *Scenari*). `zone.py N ...` scrive un `.conf` per
-ciascuno in `output/zone/confs/`: `aniso_random.conf` (maschera a 30
+hanno le 25 combinazioni di `aniso_random.csv` assegnate per zona (vedi
+*Scenari*). `zone.py N ...` scrive un `.conf` per
+ciascuno in `output/zone/confs/`: `aniso_const.conf` (maschera a 30
 gradi) con cambiati solo `experiment_id` (`aniso_zone_N`), `lat_ply`,
 `ground_truth_ply` e `output_csv` (`output/zone/aniso_zone_N/errors.csv`).
 Come per i sottoinsiemi, i `.conf` non sono in git: la ricetta e' lo
@@ -209,8 +206,6 @@ python experiments/zone.py 43270 10000 2500 600 150 40
 python analysis/analisi.py --zone
 ```
 
-Confronto con il metodo 2 di Roney et al. 2019 su terne di mappe (`estimator/roney.py`, `experiments/roney.conf`; comandi in fondo a `run_all.sh`): `output/roney/SCENARIO/{roney,faccia}/sub_*/errors.csv`, confronto in `output/roney/figure/` (`analisi.py --roney`).
-
 `analisi.py --zone` calcola per ogni N il diametro medio di zona
 d = sqrt(4 A / (pi N)) in mm, A = area totale della mesh, e scrive in
 `output/zone/figure/`: `numeri.csv`, una riga per N con d, area non
@@ -218,6 +213,13 @@ stimabile, coppie escluse, q50 e q90 dei tre errori e mediane con segno
 dei relativi; `zone.png`, quattro pannelli (area non stimabile, angolo,
 CV_L, rapporto) in funzione di d in scala log, q50 e q90, con il valore di
 `aniso_const` tratteggiato come riferimento.
+
+## Confronto con Roney
+
+Metodo 2 di Roney et al. 2019 su terne di mappe (`estimator/roney.py`,
+`experiments/roney.conf`; comandi in fondo a `run_all.sh`):
+`output/roney/SCENARIO/{roney,faccia}/sub_*/errors.csv`, confronto in
+`output/roney/figure/` (`analisi.py --roney`).
 
 ## Perche' non JSON
 

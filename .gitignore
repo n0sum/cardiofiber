@@ -1,10 +1,11 @@
 # ======================================================================
-#  Tutto cio' che e' rigenerabile da recipe/ , piu' cio' che non si
-#  puo' redistribuire. Se un file serve davvero in git: git add -f
+#  Tutto cio' che run_all.sh rigenera, piu' cio' che non si puo'
+#  redistribuire. Dei dati entrano solo gli ingressi che non si
+#  rigenerano, con eccezioni esplicite in fondo.
 # ======================================================================
 
-# dati e risultati
-/data/
+# dati e risultati; data/clinical/ non entra mai
+/data/*
 /output/
 /papers/
 
@@ -48,3 +49,17 @@ __pycache__/
 *.lon
 *.vtx
 *.log
+
+# ----------------------------------------------------------------------
+# Ingressi in git, gli unici dati che non si rigenerano: l'SSM e
+# l'uscita di AugmentA letta da run_all.sh. In fondo, per prevalere
+# sulla rete di sicurezza.
+# ----------------------------------------------------------------------
+!/data/external/
+/data/external/*
+!/data/external/biatrial_model_completeFit.h5
+!/data/augmenta/
+/data/augmenta/*
+!/data/augmenta/LA_endo_with_fiber.pts
+!/data/augmenta/LA_endo_with_fiber.elem
+!/data/augmenta/LA_endo_with_fiber.lon
