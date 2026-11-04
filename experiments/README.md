@@ -9,9 +9,6 @@ scrive un CSV di errori per faccia per ciascuno:
 
 Tutti i file vengono letti e validati prima di eseguire il primo.
 
-Cosi' "anisotropia costante + anisotropia variabile + fmap in una sola
-run" e' una lista di tre file, non tre versioni del programma.
-
 ## Perche' i parametri stanno qui e non nel codice
 
 Le soglie delle maschere determinano i risultati: sono dati, non
@@ -51,7 +48,7 @@ mm/ms) piu' la mesh in um con quei tag, `MESH_BASE`:
 |------------------|-------------------------------------|-----------------------|
 | `aniso_const`    | `data/reference/LA_um`              | `aniso_const.conf`, `aniso_const_nomask.conf` |
 | `aniso_regional` | `data/reference/LA_um`              | `aniso_regional.conf` |
-| `aniso_random`   | `data/reference/aniso_random/LA_um` | `aniso_random.conf`   |
+| `aniso_random`   | `data/reference/aniso_random/LA_um` | `aniso_random.conf`, `aniso_random_nomask.conf` |
 
 `aniso_random` ha 25 tag, tutte le combinazioni di 5 livelli di
 CV_L = 1.05 x (0.8, 0.9, 1.0, 1.1, 1.2) e 5 di r = CV_L/CV_T = 2.0 x (0.8,
@@ -60,6 +57,8 @@ La sua mesh la scrive `simulator/stage1/opencarp/random_tags.py
 aniso_random SEED`, un tag a caso per triangolo con la stessa
 probabilita'; il seme (0) sta solo in `run_all.sh`.
 `aniso_random.conf` e' `aniso_const.conf` con gli altri PLY, soglie uguali.
+`aniso_random_nomask.conf` e' `aniso_random.conf` con
+`mask.collision_angle_deg = 181`, come `aniso_const_nomask.conf`.
 
 Per ogni scenario, dalla radice:
 
@@ -111,7 +110,8 @@ Una faccia con meno di 3 righe rimaste e' non stimabile.
 
 `mask.collision_angle_deg = 181` non esclude nulla, senza codice speciale:
 l'angolo non supera mai 180. `aniso_const_nomask.conf` la usa come
-regressione.
+regressione, `aniso_random_nomask.conf` per misurare l'effetto della
+maschera sull'anisotropia casuale.
 
 Le LAT negative (FIM non convergito, -1) vengono rifiutate a monte, da
 `simulator/convert/multiLatToPly.py`, prima di scrivere `lat_ply`.

@@ -34,9 +34,14 @@ cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
 ./estimator/build/Tesi0 experiments/aniso_regional.conf
 ./estimator/build/Tesi0 experiments/aniso_random.conf
+./estimator/build/Tesi0 experiments/aniso_random_nomask.conf
 
-for e in aniso_const aniso_const_nomask aniso_regional aniso_random; do
+for e in aniso_const aniso_const_nomask aniso_regional aniso_random aniso_random_nomask; do
     python analysis/analisi.py $e                 # -> output/$e/figure/
+done
+
+for e in aniso_random aniso_random_nomask; do
+    python analysis/vicini.py $e                  # -> output/$e/figure/vicini.csv
 done
 
 python experiments/subsets.py                     # -> output/subsets/confs/*.conf

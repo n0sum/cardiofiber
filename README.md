@@ -167,12 +167,12 @@ Poi le fibre, **a mano**, nel container AugmentA.
 > stata rieseguita da capo.
 
 Il commit di AugmentA della run originale non e' registrato. Commit da
-usare: `<COMMIT DA FISSARE>`.
+usare: `COMMIT_DA_FISSARE`.
 
 ```bash
 git clone https://github.com/KIT-IBT/AugmentA
 cd AugmentA
-git checkout <COMMIT DA FISSARE>
+git checkout COMMIT_DA_FISSARE
 ```
 
 Si usa il `docker/Docker-compose.yml` del repository di AugmentA, che
@@ -328,6 +328,7 @@ cmake --build estimator/build
 ./estimator/build/Tesi0 experiments/aniso_const_nomask.conf
 ./estimator/build/Tesi0 experiments/aniso_regional.conf
 ./estimator/build/Tesi0 experiments/aniso_random.conf
+./estimator/build/Tesi0 experiments/aniso_random_nomask.conf
 ```
 
 L'eseguibile si lancia **dalla radice del repository**: i percorsi nei file
@@ -340,6 +341,7 @@ python analysis/analisi.py aniso_const
 python analysis/analisi.py aniso_const_nomask
 python analysis/analisi.py aniso_regional
 python analysis/analisi.py aniso_random
+python analysis/analisi.py aniso_random_nomask
 ```
 
 L'argomento e' il nome della cartella in `output/`. Statistiche pesate per
@@ -355,6 +357,28 @@ relativo con segno su CV_L e sul rapporto CV_L / CV_T. Scrive in
 
 Le coppie escluse sono calcolate su K = righe di `pacing_sites.csv`: vale
 per esperimenti con `maps = all`.
+
+Poi il confronto con la verita' del vicinato, su `aniso_random` e
+`aniso_random_nomask`:
+
+```bash
+python analysis/vicini.py aniso_random
+python analysis/vicini.py aniso_random_nomask
+```
+
+Vicinato di una faccia: le facce che toccano almeno uno dei suoi vertici,
+lei compresa (triangoli da `data/augmenta/LA_endo_with_fiber.elem`, stesso
+ordine dei `face_id`). Verita' del vicinato: media pesata per area di
+CV_L e CV_T vere; il suo r e' il rapporto delle due medie. Scrive
+`output/ESPERIMENTO/figure/vicini.csv`, una riga per versione, con q50 e
+q90 pesati per area, sulle facce stimabili, del valore assoluto
+dell'errore relativo su CV_L e sul rapporto:
+
+- `faccia`: stima contro verita' della faccia (gli stessi valori di
+  `numeri.csv`);
+- `vicinato`: stima contro verita' del vicinato;
+- `nullo`: costante = mediana pesata della verita' su tutta la mesh,
+  contro verita' della faccia.
 
 Poi i sottoinsiemi di mappe (vedi `experiments/README.md`):
 
