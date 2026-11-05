@@ -68,8 +68,9 @@ YLABEL = {"area": "area non stimabile [%]",
           "rapporto": "|errore relativo su CV_L / CV_T| [%]"}
 METODI = {"faccia": "per faccia", "roney": "Roney"}
 BLU = "#2a78d6"
-QSTILE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#E69F00", "#009E73"), "os^")}  # Okabe-Ito
+QSTILE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#D55E00", "#009E73"), "os^")}  # Okabe-Ito
 SIMBOLI = "osD^v"                                         # scenari del grafico 4
+COLORI_N = {1: "#000000", 8: "#0072B2", 70: "#D55E00", 600: "#009E73"}   # grafico 4, per N, Okabe-Ito
 RONEY_DISCO = 2 * float(next(l.split("=")[1] for l in open(ROOT / "experiments" / "roney.conf")
                              if l.startswith("patch.radius_mm")))
 
@@ -264,13 +265,12 @@ def main():
     g4 = terne[terne["metodo"] == "roney"].merge(terne[terne["metodo"] == "faccia"],
                                                  on=["scenario", "N", "d", "sub"], suffixes=("_roney", "_faccia"))
     scenari = g4.drop_duplicates("scenario").sort_values("d")
-    colors4 = dict(zip(scenari["scenario"], plt.cm.viridis(np.linspace(0, 0.55, len(scenari)))))
 
     def draw4(ax, cols, ylabel):
         (col,) = cols.values()
         for (sc, n, d), marker in zip(scenari[["scenario", "N", "d"]].itertuples(index=False), SIMBOLI):
             s = g4[g4["scenario"] == sc]
-            ax.scatter(s[f"{col}_roney"], s[f"{col}_faccia"], s=22, color=colors4[sc], marker=marker,
+            ax.scatter(s[f"{col}_roney"], s[f"{col}_faccia"], s=22, color=COLORI_N[n], marker=marker,
                        label=f"N = {n} (d = {d:.0f} mm)" if d >= 10 else f"N = {n} (d = {d:.2g} mm)", zorder=3)
         v = pd.concat([g4[f"{col}_roney"], g4[f"{col}_faccia"]])
         lim = (0, 1.05 * v.max())
