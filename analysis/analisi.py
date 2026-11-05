@@ -41,7 +41,10 @@ nel grafico 4 anche l'asse orizzontale, con gli stessi limiti.
                        sottoinsiemi e la fascia dal minimo al massimo
   grafico4_roney       un punto per terna e scenario, Roney in orizzontale e
                        per faccia in verticale, stessi limiti sui due assi,
-                       un colore e un simbolo per scenario
+                       un colore e un simbolo per scenario; sugli assi solo 0,
+                       minimo, baricentro (media degli 80 punti, croce) e
+                       massimo della nuvola, con proiezioni punteggiate e
+                       senza griglia
 Mediana, minimo e massimo fra sottoinsiemi contano ogni sottoinsieme uno.
 Nei grafici 2 e 3 la linea tratteggiata e' il diametro del disco di Roney,
 2 patch.radius_mm di experiments/roney.conf.
@@ -146,10 +149,10 @@ def tables():
     return pd.DataFrame(numeri), pd.DataFrame(confronto)
 
 
-def figure(name, title, draw, insieme=False):
+def figure(name, title, draw, insieme=False, dopo=None):
     """Quattro PNG, output/figure/NAME_{area,angolo,cv_l,rapporto}.png. draw(ax, cols, ylabel) disegna
     in un pannello le colonne di cols, {etichetta: colonna}. Con insieme q50, q90 e q99 stanno in un
-    solo pannello, altrimenti un pannello per quantile."""
+    solo pannello, altrimenti un pannello per quantile. dopo(fig), se c'e', si chiama prima di salvare."""
     for q, ylabel in YLABEL.items():
         if q == "area":
             panels = {"area non stimabile": {"area non stimabile": "area_non_stimabile_%"}}
@@ -160,13 +163,15 @@ def figure(name, title, draw, insieme=False):
         fig, axes = plt.subplots(1, len(panels), figsize=(max(4.6 * len(panels), 7.5), 4.6), squeeze=False,
                                  layout="constrained")
         for ax, (panel, cols) in zip(axes[0], panels.items()):
+            ax.grid(alpha=0.3)
             draw(ax, cols, ylabel)
             ax.set_title(panel)
-            ax.grid(alpha=0.3)
         handles, labels = axes[0, 0].get_legend_handles_labels()
         fig.legend(handles, labels, loc="outside lower center", ncol=min(len(labels), 5 if len(panels) > 1 else 4),
                    frameon=False)
         fig.suptitle(title)
+        if dopo:
+            dopo(fig)
         fig.savefig(FIG / f"{name}_{q}.png", dpi=140, bbox_inches="tight")
         plt.close(fig)
 
@@ -187,6 +192,25 @@ def scala_log(ax, assi):
         axis.set_major_formatter(FormatStrFormatter("%g"))
         axis.set_minor_formatter(NullFormatter())
         ax.grid(axis=a, which="minor", alpha=0.15)
+
+
+def separa_etichette(fig):
+    """Sposta su piu' righe le etichette delle tacche che si sovrappongono: in basso sull'asse x, a
+    sinistra sull'asse y."""
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    px_pt = 72 / fig.dpi
+    for ax in fig.axes:
+        for axis, lato in ((ax.xaxis, 0), (ax.yaxis, 1)):
+            ticks = sorted(axis.get_major_ticks(), key=lambda t: t.get_loc())
+            boxes = [t.label1.get_window_extent(renderer) for t in ticks]
+            passo = max((b.height if lato == 0 else b.width) for b in boxes) + 3
+            fine = []                                     # per riga, dove finisce l'ultima etichetta
+            for t, b in zip(ticks, boxes):
+                a, z = (b.x0, b.x1) if lato == 0 else (b.y0, b.y1)
+                r = next((i for i, f in enumerate(fine) if a > f + 3), len(fine))
+                fine[r:r + 1] = [z]
+                t.set_pad(t.get_pad() + r * passo * px_pt)
 
 
 def asse_y(ax, ylabel, log=False):
@@ -272,17 +296,30 @@ def main():
             s = g4[g4["scenario"] == sc]
             ax.scatter(s[f"{col}_roney"], s[f"{col}_faccia"], s=22, color=COLORI_N[n], marker=marker,
                        label=f"N = {n} (d = {d:.0f} mm)" if d >= 10 else f"N = {n} (d = {d:.2g} mm)", zorder=3)
-        v = pd.concat([g4[f"{col}_roney"], g4[f"{col}_faccia"]])
-        lim = (0, 1.05 * v.max())
+        x, y = g4[f"{col}_roney"], g4[f"{col}_faccia"]
+        lim = (0, 1.05 * max(x.max(), y.max()))
         ax.plot(lim, lim, color="#555", lw=1, label="y = x")
         ax.set_xlim(*lim)
         ax.set_ylim(*lim)
+        # sugli assi solo 0, minimo, baricentro e massimo della nuvola, con le proiezioni
+        mx, my = x.mean(), y.mean()
+        proiezione = dict(color="#444", lw=0.8, ls=":", zorder=2)
+        for i in (x.idxmin(), x.idxmax()):
+            ax.plot([x[i], x[i]], [0, y[i]], **proiezione)
+        for i in (y.idxmin(), y.idxmax()):
+            ax.plot([0, x[i]], [y[i], y[i]], **proiezione)
+        ax.plot([mx, mx, 0], [0, my, my], **proiezione)
+        ax.scatter(mx, my, s=170, marker="+", linewidths=2, color="#444", label="baricentro", zorder=5)
+        for setter, v in ((ax.set_xticks, x), (ax.set_yticks, y)):
+            vals = [0, v.min(), v.mean(), v.max()]
+            setter(vals, ["0"] + [f"{t:#.3g}".rstrip(".") for t in vals[1:]])   # 19.0, non 19
+        ax.grid(False)
         ax.set_aspect("equal")
         ax.set_xlabel(f"{METODI['roney']}: {ylabel}")
         ax.set_ylabel(f"{METODI['faccia']}: {ylabel}")
 
-    figure("grafico4_roney", "terne di mappe: per faccia contro Roney, facce appaiate (area: ogni metodo da solo)",
-           draw4)
+    figure("grafico4_roney", "terne di mappe: per faccia contro Roney, facce appaiate (area: ogni metodo da solo)\n"
+           "sugli assi: min, baricentro (media delle terne) e max", draw4, dopo=separa_etichette)
 
 
 if __name__ == "__main__":

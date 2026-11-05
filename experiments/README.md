@@ -200,7 +200,7 @@ quello orizzontale, con gli stessi limiti).
 | `grafico1_mappe_*`         | `aniso_zone_1`, in funzione di k: un punto per sottoinsieme e quantile, sfalsati dentro ogni k |
 | `grafico2_zone_*`          | sei mappe, in funzione di d (log): un punto per scenario e quantile |
 | `grafico3_zone_mappe_*`    | in funzione di d (log): per ogni k mediana dei sottoinsiemi e fascia dal minimo al massimo |
-| `grafico4_roney_*`         | un punto per terna e scenario (un colore e un simbolo per scenario): Roney in orizzontale, per faccia in verticale, con y = x |
+| `grafico4_roney_*`         | un punto per terna e scenario (un colore e un simbolo per scenario): Roney in orizzontale, per faccia in verticale, con y = x; sugli assi solo 0, minimo, baricentro (media degli 80 punti, croce) e massimo, con proiezioni punteggiate e senza griglia |
 
 Mediana, minimo e massimo fra sottoinsiemi contano ogni sottoinsieme uno;
 la pesatura per area vale dentro ogni sottoinsieme. Nei grafici 2 e 3 la
