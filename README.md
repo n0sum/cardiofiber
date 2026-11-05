@@ -21,9 +21,9 @@ estimator/
   src/                         Tesi0 (C++): gradiente per faccia, stima del tensore
   include/happly.h             lettore PLY vendorizzato (THIRD_PARTY.md)
   roney.py                     metodo 2 di Roney et al. 2019
-analysis/analisi.py            errori pesati per area, figure, numeri.csv
+analysis/analisi.py            errori pesati per area, figure, numeri.csv e confronto.csv
 experiments/                   modello.conf e roney.conf, CV per zona (region_cv/),
-                               subsets.py, zone.py, mappe.py; formati in experiments/README.md
+                               subsets.py, mappe.py; formati in experiments/README.md
 ```
 
 ## Requisiti
@@ -84,15 +84,16 @@ l'ambiente `tesi` attivo:
 
 Lo script converte la mesh in um, scrive i tag degli scenari, lancia le
 simulazioni eikonali (sei siti di stimolo, `simulator/stage1/pacing_sites.csv`),
-compila `estimator/` in `estimator/build/` e calcola stime e confronti.
-Uscite, per esperimento, in `output/`:
+compila `estimator/` in `estimator/build/`, cancella `output/` e calcola
+una sola griglia di esperimenti: per ogni scenario lo stimatore per faccia su
+tutti i 42 sottoinsiemi di almeno 3 mappe e il metodo di Roney sulle 20
+terne. Uscite in `output/`:
 
 | cartella                                   | contenuto                                          |
 |--------------------------------------------|----------------------------------------------------|
-| `zone/`                                    | scenari `aniso_zone_N`: `errors.csv` per faccia, `figure/{zone.png,numeri.csv}`; `aniso_zone_1/figure/{errori.png,numeri.csv}` |
-| `subsets/`                                 | sottoinsiemi di mappe su `aniso_zone_1`, `figure/numeri.csv` e grafici |
-| `roney/`                                   | Roney contro stimatore per faccia, `figure/{zona_1.png,zone.png,numeri.csv,terne.csv}` |
-| `mappe/`                                   | PLY degli errori per faccia su `aniso_zone_1` (tutte le mappe e terne scelte), uno per errore, per MeshLab |
+| `aniso_zone_N/`                            | `confs/sub_*.conf`; `faccia/sub_*/errors.csv` (Tesi0); `roney/sub_i-j-k/errors.csv` (`roney.py`) |
+| `figure/`                                  | `numeri.csv`, `confronto.csv` e 16 grafici (`analisi.py`) |
+| `mesh/`                                    | 12 PLY degli errori, uno per errore e caso, per MeshLab (`mappe.py`) |
 
 Scenari: `aniso_zone_N`, la mesh divisa in N zone casuali (seme 0), ogni zona
 con una delle 25 combinazioni di CV_L e r = CV_L/CV_T di
@@ -106,19 +107,24 @@ r = 1.6); con N = 43270 c'e' una zona per faccia. Dettagli in
 Errori pesati per area sulle facce stimabili: angolo di fibra in gradi,
 errori relativi in valore assoluto, in %, su CV_L e sul rapporto r.
 
-**aniso_zone_1**, sei mappe (`output/zone/aniso_zone_1/figure/numeri.csv`):
+Le tabelle sono in `output/figure/`: `numeri.csv` per lo stimatore per faccia
+(una riga per scenario e sottoinsieme), `confronto.csv` per il confronto con
+Roney (una riga per scenario, terna e metodo, piu' le righe `sub` = `tutte`).
+Le colonne hanno anche q99, che qui non e' riportato.
+
+**aniso_zone_1**, sei mappe (`numeri.csv`, riga `sub_0-1-2-3-4-5`):
 
 | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | CV_L q90 | r q50 | r q90 |
 |--------|--------|-------|--------|--------|--------|---------|
 | 0.13 % | 0.907° | 4.27° | 0.67 % | 3.32 % | 1.30 % | 6.90 %  |
 
-**Sottoinsiemi di mappe** su `aniso_zone_1` (`output/subsets/figure/numeri.csv`,
-confronto appaiato con le sei mappe): con 3 mappe, sulle 20 terne, area non
+**Sottoinsiemi di mappe** su `aniso_zone_1` (`numeri.csv`, confronto appaiato
+con le sei mappe): con 3 mappe, sulle 20 terne, area non
 stimabile 4.0-9.7 % (mediana 5.3 %), angolo q50 1.17-1.77° (mediana
 1.37°), angolo q90 9.2-15.0° (mediana 10.6°); con 6 mappe i valori di
 `aniso_zone_1`.
 
-**Zone** (`output/zone/figure/numeri.csv`), d = diametro medio di zona:
+**Zone**, sei mappe (`numeri.csv`, righe `sub_0-1-2-3-4-5`), d = diametro medio di zona:
 
 | N     | d [mm] | area non stimabile | angolo q50 | angolo q90 |
 |-------|--------|--------------------|------------|------------|
@@ -129,7 +135,7 @@ stimabile 4.0-9.7 % (mediana 5.3 %), angolo q50 1.17-1.77° (mediana
 | 50    | 17.4   | 0.52 %             | 1.08°      | 5.72°      |
 | 1     | 123    | 0.13 %             | 0.907°     | 4.27°      |
 
-**Roney su aniso_zone_1**, terne di mappe (`output/roney/figure/numeri.csv`;
+**Roney su aniso_zone_1**, terne di mappe (`confronto.csv`, righe `sub` = `tutte`;
 errori sulle facce stimabili in entrambi i metodi, 75.7 % dell'area):
 
 | metodo  | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | r q50  |
@@ -153,7 +159,7 @@ errori sulle facce stimabili in entrambi i metodi, 75.7 % dell'area):
 - `data/reference/LA_LAT_NOME.ply`: PLY binario, per vertice `x y z` (mm) e
   `lat_0 ... lat_5` (ms), `lat_k` dal sito k. `LA_GT_NOME.ply`: per faccia `fx fy fz` (fibra),
   `CV_L CV_T` (mm/ms), `elem_tag`.
-- `output/**/errors.csv`: una riga per faccia; colonne in `experiments/README.md`.
+- `output/aniso_zone_N/{faccia,roney}/sub_*/errors.csv`: una riga per faccia; colonne in `experiments/README.md`.
 
 ## Rigenerare la LA e le fibre dall'SSM (facoltativo)
 

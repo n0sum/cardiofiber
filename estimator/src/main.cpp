@@ -5,9 +5,9 @@
 
 // Uso, dalla radice del repository:
 //   ./estimator/build/Tesi0 experiments/a.conf [experiments/b.conf ...]
-// Un CSV di errori per faccia per esperimento, in sequenza, e i PLY degli errori se output_ply non e' none.
+// Un CSV di errori per faccia per esperimento, in sequenza.
 //   ./estimator/build/Tesi0 --ply MESH.ply ERRORS.csv BASE
-// Solo i PLY degli errori di un errors.csv qualsiasi (es. di estimator/roney.py) sulla mesh di MESH.ply:
+// I PLY degli errori di un errors.csv (di Tesi0 o di estimator/roney.py) sulla mesh di MESH.ply:
 // BASE_angolo.ply, BASE_cv_l.ply, BASE_rapporto.ply.
 
 namespace {
@@ -25,8 +25,6 @@ namespace {
 
         std::filesystem::create_directories(std::filesystem::path(cfg.outputCsv).parent_path());
         m.exportErrorsAsCsv(cfg.outputCsv, cfg.experimentId, est);
-        // dal CSV appena scritto: lo stesso percorso dei PLY di roney.py
-        if (cfg.outputPly != "none") m.exportErrorsAsPly(cfg.outputCsv, cfg.outputPly);
     }
 }
 

@@ -1,55 +1,49 @@
 #!/usr/bin/env python3
 """
-Mappe degli errori per faccia in PLY (Tesi0), su aniso_zone_1, in output/mappe/.
-Per ogni caso tre PLY, uno per errore: CASO_angolo.ply, CASO_cv_l.ply,
-CASO_rapporto.ply. I casi:
-    faccia_tutte_le_mappe      stimatore per faccia, tutte le mappe
-    faccia_migliore_sub_i-j-k  stimatore per faccia, terna con angolo q50 minimo
-    faccia_peggiore_sub_i-j-k  stimatore per faccia, terna con angolo q50 massimo
-    roney_migliore_sub_i-j-k   Roney, idem
-    roney_peggiore_sub_i-j-k
-Angolo q50 di ogni terna da output/roney/figure/terne.csv (analisi.py --roney):
-facce stimabili nei due bracci, i punti di zona_1.png.
-
-Scrive in output/mappe/confs/ i .conf dello stimatore per faccia. Le stime di
-Roney sono gia' in output/roney/aniso_zone_1/roney/: per ognuna, dopo aver
-scritto i .conf, stampa una riga "ERRORS_CSV BASE", da passare a Tesi0 --ply.
+Mappe degli errori in PLY per MeshLab, dagli errors.csv della griglia.
+Per ogni caso stampa una riga "MESH ERRORS_CSV PREFISSO", da passare a
+Tesi0 --ply, che scrive PREFISSO_{angolo,cv_l,rapporto}.ply. MESH e' il LAT
+PLY dello scenario; PREFISSO e' output/mesh/METODO_SCENARIO_SUB. I casi:
+    per faccia, tutte le mappe, su SCENARIO_TUTTE e su SCENARIO_TERNA
+    per faccia e Roney sulla terna di SCENARIO_TERNA con l'area appaiata
+    piu' grande: facce stimabili da entrambi i metodi, pesate per area
 
 Uso, dalla radice del repository:
-    python experiments/mappe.py
+    python experiments/mappe.py | while read -r mesh csv prefisso; do
+        ./estimator/build/Tesi0 --ply "$mesh" "$csv" "$prefisso"
+    done
 """
 
 from pathlib import Path
 
 import pandas as pd
 
-from subsets import write_conf
-
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
-SCENARIO = "aniso_zone_1"
-TERNE = ROOT / "output" / "roney" / "figure" / "terne.csv"
-OUT = "output/mappe"
+SCENARIO_TUTTE = "aniso_zone_1"
+SCENARIO_TERNA = "aniso_zone_5000"
+
+
+def line(method, scenario, sub):
+    errors = f"output/{scenario}/{method}/{sub}/errors.csv"
+    print(f"data/reference/LA_LAT_{scenario}.ply {errors} output/mesh/{method}_{scenario}_{sub}")
 
 
 def main():
-    t = pd.read_csv(TERNE)
-    t = t[t["scenario"] == SCENARIO].set_index("sub")
+    (ROOT / "output" / "mesh").mkdir(parents=True, exist_ok=True)
 
-    faccia = {"faccia_tutte_le_mappe": "all"}              # caso -> maps
-    roney = {}                                             # caso -> errors.csv
-    for arm in ("faccia", "roney"):
-        q50 = t.loc[t["braccio"] == arm, "angolo_q50"]
-        for nome, sub in (("migliore", q50.idxmin()), ("peggiore", q50.idxmax())):
-            if arm == "faccia":
-                faccia[f"faccia_{nome}_{sub}"] = sub.removeprefix("sub_").replace("-", ",")
-            else:
-                roney[f"roney_{nome}_{sub}"] = f"output/roney/{SCENARIO}/roney/{sub}/errors.csv"
+    for scenario in (SCENARIO_TUTTE, SCENARIO_TERNA):
+        subs = [d.name for d in (ROOT / "output" / scenario / "faccia").glob("sub_*")]
+        line("faccia", scenario, max(subs, key=lambda s: s.count("-")))   # tutte le mappe
 
-    for caso, maps in faccia.items():
-        write_conf(ROOT / OUT / "confs" / f"{caso}.conf", SCENARIO, caso, maps,
-                   f"{OUT}/{caso}/errors.csv", f"{OUT}/{caso}")
-    for caso, errors_csv in roney.items():
-        print(f"{errors_csv} {OUT}/{caso}")
+    paired = {}                                           # terna -> area appaiata
+    for d in (ROOT / "output" / SCENARIO_TERNA / "roney").glob("sub_*"):
+        roney = pd.read_csv(d / "errors.csv")
+        faccia = pd.read_csv(ROOT / "output" / SCENARIO_TERNA / "faccia" / d.name / "errors.csv")
+        both = (roney["estimable"] == 1) & (faccia["estimable"] == 1)
+        paired[d.name] = roney["area"][both].sum() / roney["area"].sum()
+    sub = max(paired, key=paired.get)
+    line("faccia", SCENARIO_TERNA, sub)
+    line("roney", SCENARIO_TERNA, sub)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,8 @@ Uso, dalla radice del repository:
 Legge data/reference/LA_LAT_SCENARIO.ply e, solo dopo la stima,
 data/reference/LA_GT_SCENARIO.ply. Le terne sono quelle delle mappe lat_k
 del LAT PLY; k e' l'indice del sito. Scrive
-output/roney/SCENARIO/roney/sub_i-j-k/errors.csv, con le colonne di
+output/SCENARIO/roney/sub_i-j-k/errors.csv, accanto a
+output/SCENARIO/faccia/ dello stimatore per faccia, con le colonne di
 exportErrorsAsCsv in Mesh.cpp.
 
 Unita': gradienti in ms/mm, velocita' in mm/ms.
@@ -184,7 +185,7 @@ def main():
                                "cond": np.nan, "CV_L_est": np.where(ok, cvl, np.nan),
                                "CV_T_est": np.where(ok, cvt, np.nan), "CV_L_true": gt["CV_L"],
                                "CV_T_true": gt["CV_T"], "err_angle": np.where(ok, ang, np.nan)})[COLUMNS]
-            out = ROOT / "output" / "roney" / scenario / "roney" / ("sub_" + "-".join(map(str, sub)))
+            out = ROOT / "output" / scenario / "roney" / ("sub_" + "-".join(map(str, sub)))
             out.mkdir(parents=True, exist_ok=True)
             df.to_csv(out / "errors.csv", index=False, float_format="%.9e")
 

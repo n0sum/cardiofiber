@@ -25,26 +25,20 @@ done
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build
 
-python experiments/zone.py $ZONE                  # -> output/zone/confs/*.conf
-./estimator/build/Tesi0 output/zone/confs/*.conf
-python analysis/analisi.py zone/aniso_zone_1      # -> output/zone/aniso_zone_1/figure/
-python analysis/analisi.py --zone                 # -> output/zone/figure/
+rm -rf output                                     # niente risultati vecchi nelle figure
 
-python experiments/subsets.py aniso_zone_1 output/subsets   # -> output/subsets/confs/*.conf
-./estimator/build/Tesi0 output/subsets/confs/*.conf
-python analysis/analisi.py --sottoinsiemi         # -> output/subsets/figure/
-
-# metodo 2 di Roney et al. 2019 contro lo stimatore per faccia, solo terne di mappe
+# griglia: per ogni scenario tutti i sottoinsiemi di almeno 3 mappe con lo stimatore per faccia,
+# e tutte le terne con il metodo 2 di Roney et al. 2019
 for n in $ZONE; do
-    python experiments/subsets.py aniso_zone_$n output/roney/aniso_zone_$n/faccia 3
+    python experiments/subsets.py aniso_zone_$n   # -> output/aniso_zone_$n/confs/*.conf
 done
-./estimator/build/Tesi0 output/roney/*/faccia/confs/*.conf
+./estimator/build/Tesi0 output/aniso_zone_*/confs/*.conf   # -> output/SCENARIO/faccia/sub_*/errors.csv
+# -> output/SCENARIO/roney/sub_i-j-k/errors.csv
 python estimator/roney.py experiments/roney.conf $(for n in $ZONE; do echo aniso_zone_$n; done)
-python analysis/analisi.py --roney                # -> output/roney/figure/
+python analysis/analisi.py                        # -> output/figure/
 
-# mappe degli errori per faccia in PLY, su aniso_zone_1: tutte le mappe e, per braccio, le terne con
-# angolo q50 minimo e massimo (da output/roney/figure/terne.csv); tre PLY per caso, uno per errore
-python experiments/mappe.py | while read -r csv base; do   # -> output/mappe/confs/*.conf
-    ./estimator/build/Tesi0 --ply data/reference/LA_LAT_aniso_zone_1.ply "$csv" "$base"
+# mappe degli errori in PLY: per faccia con tutte le mappe su aniso_zone_1 e aniso_zone_5000, e i due
+# metodi sulla terna di aniso_zone_5000 con l'area appaiata piu' grande; tre PLY per caso, uno per errore
+python experiments/mappe.py | while read -r mesh csv prefisso; do
+    ./estimator/build/Tesi0 --ply "$mesh" "$csv" "$prefisso"   # -> output/mesh/*_{angolo,cv_l,rapporto}.ply
 done
-./estimator/build/Tesi0 output/mappe/confs/*.conf  # -> output/mappe/*_{angolo,cv_l,rapporto}.ply

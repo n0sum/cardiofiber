@@ -35,7 +35,6 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
     c.latPly = kv.at("lat_ply");
     c.groundTruthPly = kv.at("ground_truth_ply");
     c.outputCsv = kv.at("output_csv");
-    c.outputPly = kv.at("output_ply");
     if (kv.at("maps") == "all") c.allMaps = true;
     else c.maps = parseMapList(kv.at("maps"));
     c.minSingularValue = std::stod(kv.at("mask.min_singular_value"));
