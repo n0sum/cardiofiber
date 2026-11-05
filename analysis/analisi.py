@@ -245,7 +245,7 @@ def main():
 
     # grafico 3: in funzione di d, una linea e una fascia per k
     ks = sorted(numeri["k"].unique())
-    colors = dict(zip(ks, plt.cm.viridis(np.linspace(0, 0.7, len(ks)))))
+    colors = dict(zip(ks, plt.cm.viridis(np.linspace(0, 0.55, len(ks)))))
 
     def draw3(ax, cols, ylabel):
         (col,) = cols.values()
@@ -264,7 +264,7 @@ def main():
     g4 = terne[terne["metodo"] == "roney"].merge(terne[terne["metodo"] == "faccia"],
                                                  on=["scenario", "N", "d", "sub"], suffixes=("_roney", "_faccia"))
     scenari = g4.drop_duplicates("scenario").sort_values("d")
-    colors4 = dict(zip(scenari["scenario"], plt.cm.viridis(np.linspace(0, 0.7, len(scenari)))))
+    colors4 = dict(zip(scenari["scenario"], plt.cm.viridis(np.linspace(0, 0.55, len(scenari)))))
 
     def draw4(ax, cols, ylabel):
         (col,) = cols.values()
