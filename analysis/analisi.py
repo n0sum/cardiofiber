@@ -29,8 +29,10 @@ loro aree sono le medie sulle terne.
 Figure, ognuna in quattro PNG: _area (area non stimabile, un pannello) e
 _angolo, _cv_l, _rapporto. Nei grafici 1 e 2 questi ultimi hanno un solo
 pannello con q50, q90 e q99 (cerchio, quadrato, triangolo, colori Okabe-Ito),
-solo punti senza linee; nei grafici 3 e 4 tre pannelli q50, q90, q99, ognuno
-con la sua scala. Scale lineari da 0.
+solo punti senza linee, con l'asse verticale in scala log ed etichette in
+numeri semplici; nei grafici 3 e 4 tre pannelli q50, q90, q99, ognuno con la
+sua scala. Gli altri assi verticali, compresi i file _area, sono lineari da 0;
+nel grafico 4 anche l'asse orizzontale, con gli stessi limiti.
   grafico1_mappe       aniso_zone_1, in funzione di k: un punto per
                        sottoinsieme e quantile, sfalsati dentro ogni k
   grafico2_zone        tutte le mappe, in funzione di d: un punto per
@@ -52,7 +54,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
+from matplotlib.ticker import FormatStrFormatter, LogLocator, NullFormatter
 
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
 OUT = ROOT / "output"
@@ -168,10 +170,32 @@ def figure(name, title, draw, insieme=False):
         plt.close(fig)
 
 
-def asse_y(ax, ylabel):
-    """Asse verticale lineare, da 0."""
-    ax.set_ylabel(ylabel)
-    ax.set_ylim(bottom=0)
+def scala_log(ax, assi):
+    """Scala log sugli assi dati ("x", "y"), con etichette in numeri semplici (1, 2, 5, 10, 20) invece
+    che in potenze di 10: tacche 1-2-5 per decade, oppure 1-9 se cosi' le etichette sono meno di quattro.
+    Va chiamata dopo aver disegnato i dati."""
+    for a in assi:
+        getattr(ax, f"set_{a}scale")("log")
+        axis = getattr(ax, f"{a}axis")
+        lo, hi = getattr(ax, f"get_{a}lim")()
+        for subs in ((1, 2, 5), (1, 2, 3, 4, 5, 6, 7, 8, 9)):
+            ticks = [t for t in LogLocator(subs=subs).tick_values(lo, hi) if lo <= t <= hi]
+            if len(ticks) >= 4:
+                break
+        axis.set_major_locator(LogLocator(subs=subs))
+        axis.set_major_formatter(FormatStrFormatter("%g"))
+        axis.set_minor_formatter(NullFormatter())
+        ax.grid(axis=a, which="minor", alpha=0.15)
+
+
+def asse_y(ax, ylabel, log=False):
+    """Asse verticale: in scala log, oppure lineare da 0."""
+    if log:
+        ax.set_ylabel(f"{ylabel} (scala log)")
+        scala_log(ax, "y")
+    else:
+        ax.set_ylabel(ylabel)
+        ax.set_ylim(bottom=0)
 
 
 def punti(ax, x, df, cols):
@@ -204,7 +228,7 @@ def main():
         punti(ax, g1["x"], g1, cols)
         ax.set_xticks(sorted(g1["k"].unique()))
         ax.set_xlabel("mappe usate k")
-        asse_y(ax, ylabel)
+        asse_y(ax, ylabel, log=len(cols) > 1)
 
     figure("grafico1_mappe", f"{SCENARIO_MAPPE}: un punto per sottoinsieme di mappe", draw1, insieme=True)
 
@@ -214,14 +238,14 @@ def main():
     def draw2(ax, cols, ylabel):
         punti(ax, g2["d"], g2, cols)
         asse_d(ax)
-        asse_y(ax, ylabel)
+        asse_y(ax, ylabel, log=len(cols) > 1)
 
     figure("grafico2_zone", f"aniso_zone_N, per faccia, {g2['k'].iloc[0]} mappe: un punto per scenario", draw2,
            insieme=True)
 
     # grafico 3: in funzione di d, una linea e una fascia per k
     ks = sorted(numeri["k"].unique())
-    colors = dict(zip(ks, plt.cm.viridis(np.linspace(0, 0.85, len(ks)))))
+    colors = dict(zip(ks, plt.cm.viridis(np.linspace(0, 0.7, len(ks)))))
 
     def draw3(ax, cols, ylabel):
         (col,) = cols.values()
@@ -240,7 +264,7 @@ def main():
     g4 = terne[terne["metodo"] == "roney"].merge(terne[terne["metodo"] == "faccia"],
                                                  on=["scenario", "N", "d", "sub"], suffixes=("_roney", "_faccia"))
     scenari = g4.drop_duplicates("scenario").sort_values("d")
-    colors4 = dict(zip(scenari["scenario"], plt.cm.viridis(np.linspace(0, 0.85, len(scenari)))))
+    colors4 = dict(zip(scenari["scenario"], plt.cm.viridis(np.linspace(0, 0.7, len(scenari)))))
 
     def draw4(ax, cols, ylabel):
         (col,) = cols.values()

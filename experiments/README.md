@@ -189,9 +189,11 @@ d = 123 mm).
 Quattro grafici, ognuno in quattro PNG: `_area` (area non stimabile, un
 pannello) e `_angolo`, `_cv_l`, `_rapporto`. Nei grafici 1 e 2 questi
 hanno un solo pannello con q50, q90 e q99 insieme (cerchio, quadrato,
-triangolo, colori Okabe-Ito), solo punti senza linee; nei grafici 3 e 4 tre
-pannelli q50, q90 e q99. Gli assi verticali sono lineari e partono da 0
-(nel grafico 4 anche quello orizzontale, con gli stessi limiti).
+triangolo, colori Okabe-Ito), solo punti senza linee, con l'asse
+verticale in scala log ed etichette in numeri semplici (1, 2, 5, 10...);
+nei grafici 3 e 4 tre pannelli q50, q90 e q99. Gli altri assi verticali,
+compresi i file `_area`, sono lineari e partono da 0 (nel grafico 4 anche
+quello orizzontale, con gli stessi limiti).
 
 | file                       | contenuto                                              |
 |----------------------------|--------------------------------------------------------|
