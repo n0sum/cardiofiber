@@ -121,8 +121,8 @@ Le colonne hanno anche q99, che qui non e' riportato.
 |--------|--------|-------|--------|--------|--------|---------|
 | 0.13 % | 0.907° | 4.27° | 0.67 % | 3.32 % | 1.30 % | 6.90 %  |
 
-**Sottoinsiemi di mappe** su `aniso_zone_1` (`numeri.csv`, confronto appaiato
-con le sei mappe): con 3 mappe, sulle 20 terne, area non
+**Sottoinsiemi di mappe** su `aniso_zone_1` (`numeri.csv`, errori sulle
+facce stimabili di ogni sottoinsieme): con 3 mappe, sulle 20 terne, area non
 stimabile 4.0-9.7 % (mediana 5.3 %), angolo q50 1.17-1.77° (mediana
 1.37°), angolo q90 9.2-15.0° (mediana 10.6°); con 6 mappe i valori di
 `aniso_zone_1`.

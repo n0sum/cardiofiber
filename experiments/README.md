@@ -178,28 +178,27 @@ diametro medio di zona in mm, A l'area totale della mesh (con N = 1,
 d = 123 mm).
 
 - `numeri.csv`: una riga per scenario e sottoinsieme dello stimatore per
-  faccia. L'area non stimabile e' quella del sottoinsieme da solo; gli
-  errori sono APPAIATI, sulle facce stimabili sia nel sottoinsieme sia con
-  tutte le mappe dello stesso scenario.
+  faccia: area non stimabile ed errori sulle facce stimabili del
+  sottoinsieme.
 - `confronto.csv`: una riga per scenario, terna e metodo (`faccia`,
   `roney`), con l'area non stimabile del metodo da solo, l'area appaiata
   (facce stimabili da entrambi i metodi con quella terna) e gli errori sulle
   facce appaiate. Le righe con `sub` = `tutte` mettono insieme le facce
   appaiate delle 20 terne dello scenario.
 
-Quattro grafici, ognuno in quattro PNG: `_area` (area non stimabile) e
-`_angolo`, `_cv_l`, `_rapporto`, con tre pannelli q50, q90 e q99. Le scale
-partono da 0, tranne nei pannelli q99, in scala log (nel grafico 4 su
-entrambi gli assi, con gli stessi limiti): con 3 mappe il q99 dell'errore
-sul rapporto arriva a migliaia di % (ellissi quasi piatte) e schiaccerebbe
-gli altri valori.
+Quattro grafici, ognuno in quattro PNG: `_area` (area non stimabile, un
+pannello) e `_angolo`, `_cv_l`, `_rapporto`. Nei grafici 1 e 2 questi
+hanno un solo pannello con q50, q90 e q99 insieme (cerchio, quadrato,
+triangolo, colori Okabe-Ito), solo punti senza linee; nei grafici 3 e 4 tre
+pannelli q50, q90 e q99. Gli assi verticali sono lineari e partono da 0
+(nel grafico 4 anche quello orizzontale, con gli stessi limiti).
 
 | file                       | contenuto                                              |
 |----------------------------|--------------------------------------------------------|
-| `grafico1_mappe_*`         | `aniso_zone_1`, in funzione di k: un punto per sottoinsieme, linea delle mediane per k |
-| `grafico2_zone_*`          | sei mappe, in funzione di d (log): un punto per scenario |
+| `grafico1_mappe_*`         | `aniso_zone_1`, in funzione di k: un punto per sottoinsieme e quantile, sfalsati dentro ogni k |
+| `grafico2_zone_*`          | sei mappe, in funzione di d (log): un punto per scenario e quantile |
 | `grafico3_zone_mappe_*`    | in funzione di d (log): per ogni k mediana dei sottoinsiemi e fascia dal minimo al massimo |
-| `grafico4_roney_*`         | un punto per terna e scenario: Roney in orizzontale, per faccia in verticale, con y = x |
+| `grafico4_roney_*`         | un punto per terna e scenario (un colore e un simbolo per scenario): Roney in orizzontale, per faccia in verticale, con y = x |
 
 Mediana, minimo e massimo fra sottoinsiemi contano ogni sottoinsieme uno;
 la pesatura per area vale dentro ogni sottoinsieme. Nei grafici 2 e 3 la
