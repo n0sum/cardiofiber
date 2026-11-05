@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Genera un .conf per ogni scenario aniso_zone_N, con tutte le mappe che
-convergono (maps = all).
+Genera un .conf per ogni scenario aniso_zone_N, con tutte le mappe
+(maps = all).
 
 Uso, dalla radice del repository:
     python experiments/zone.py N [N ...]

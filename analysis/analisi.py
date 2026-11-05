@@ -20,9 +20,6 @@ Uso, dalla radice del repository:
         -> output/roney/figure/{zona_1.png, zone.png, numeri.csv, terne.csv}
            da output/roney/SCENARIO/{roney,faccia}/sub_*/errors.csv (estimator/roney.py)
 
-Le mappe sono solo quelle che convergono in ogni scenario: in numeri.csv di
-zone e roney la colonna mappe ne da' il numero.
-
 Sottoinsiemi: confronto APPAIATO, gli errori di ogni sottoinsieme si calcolano
 sulle facce stimabili sia in esso sia nel sottoinsieme con tutte le mappe.
 
@@ -200,7 +197,7 @@ def zone():
         ax.grid(alpha=0.3, which="both")
         if len(cols) > 1:
             ax.legend(frameon=False)
-    fig.suptitle("aniso_zone_N, tutte le mappe che convergono")
+    fig.suptitle("aniso_zone_N, tutte le mappe")
     plt.tight_layout()
     plt.savefig(out_dir / "zone.png", dpi=140)
     plt.close()

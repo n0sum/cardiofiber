@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
 Genera un .conf per ogni sottoinsieme di k >= 3 mappe LAT di uno scenario,
-oppure solo per i sottoinsiemi di K mappe. Le mappe sono quelle che
-convergono, da data/reference/sims/SCENARIO/mappe.csv, con il loro indice di
-sito (la riga di pacing_sites.csv).
+oppure solo per i sottoinsiemi di K mappe. Il numero di mappe e' il numero
+di righe di pacing_sites.csv (la riga k e' la mappa k).
 
 experiment_id = sub_ + indici uniti da trattino (es. sub_0-2-4): finisce
 non quotato nel CSV, quindi niente virgole.
@@ -21,6 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
 MODEL = ROOT / "experiments" / "modello.conf"
+SITES = ROOT / "simulator" / "stage1" / "pacing_sites.csv"
 MIN_MAPS = 3                                              # kMinGradients in Mesh.cpp
 
 
@@ -41,8 +41,7 @@ def write_conf(path, scenario, experiment_id, maps, output_csv, output_ply="none
 
 def main():
     scenario, out_dir = sys.argv[1], sys.argv[2]
-    mappe = ROOT / "data" / "reference" / "sims" / scenario / "mappe.csv"
-    maps = [int(r["mappa"]) for r in csv.DictReader(open(mappe)) if r["converge"] == "1"]
+    maps = range(len(list(csv.DictReader(open(SITES)))))
     ks = [int(sys.argv[3])] if len(sys.argv) > 3 else range(MIN_MAPS, len(maps) + 1)
     for k in ks:
         for subset in itertools.combinations(maps, k):

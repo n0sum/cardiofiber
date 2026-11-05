@@ -18,7 +18,7 @@ CV_CSV=experiments/region_cv/aniso_random.csv
 for n in $ZONE; do
     s=aniso_zone_$n; mesh=data/reference/$s/LA_um
     python simulator/stage1/opencarp/random_tags.py $s $CV_CSV 0 $n   # -> $mesh.*
-    python simulator/stage1/opencarp/run_sims.py $s $CV_CSV $mesh     # -> data/reference/sims/$s/{run_*,mappe.csv}
+    python simulator/stage1/opencarp/run_sims.py $s $CV_CSV $mesh     # -> data/reference/sims/$s/run_*/act.igb
     python simulator/convert/toPly.py $s $CV_CSV $mesh                # -> data/reference/LA_{LAT,GT}_$s.ply
 done
 

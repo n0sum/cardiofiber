@@ -17,12 +17,6 @@ Le run finiscono in data/reference/sims/NOME/run_k/. openCARP non ha
 un'opzione per sovrascrivere una run esistente, quindi la cartella si
 cancella prima.
 
-Il FIM si ferma dopo MAX_ITER iterazioni; le run che convergono ne fanno
-97-154. Dopo ogni run si leggono le iterazioni da eik_stats.dat: se ha
-raggiunto MAX_ITER, la mappa non converge. Scrive
-data/reference/sims/NOME/mappe.csv (mappa,iterazioni,converge): toPly.py
-mette nel LAT PLY solo le mappe che convergono.
-
 Uso, dalla radice del repository:
     python simulator/stage1/opencarp/run_sims.py NOME CSV MESH_BASE
     python simulator/stage1/opencarp/run_sims.py aniso_zone_50 experiments/region_cv/aniso_random.csv data/reference/aniso_zone_50/LA_um
@@ -35,14 +29,12 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 # ---------------------------------------------------------------- percorsi
 HERE     = Path(__file__).resolve().parent
 ROOT     = HERE.parents[2]                                    # radice del repository
 SITES    = HERE.parent / "pacing_sites.csv"
 SIMS_DIR = ROOT / "data" / "reference" / "sims"
-MAX_ITER = 1000                                               # iterazioni massime del FIM
 # --------------------------------------------------------------------------
 
 
@@ -78,17 +70,11 @@ def main():
     tri = np.loadtxt(f"{mesh_um}.elem", skiprows=1, usecols=(1, 2, 3), dtype=np.int64)
     sims_dir.mkdir(parents=True, exist_ok=True)
 
-    rows = []
     for k, row in enumerate(csv.DictReader(open(SITES))):
         p = np.round(pts[tri[int(row["cell_id"])]].mean(0)).astype(np.int64)
         shutil.rmtree(sims_dir / f"run_{k}", ignore_errors=True)
-        subprocess.run([HERE / "run_eik.sh", str(mesh_um), str(k), *map(str, p),
-                        "-dream.fim.max_iter", str(MAX_ITER), *regions],
+        subprocess.run([HERE / "run_eik.sh", str(mesh_um), str(k), *map(str, p), *regions],
                        cwd=sims_dir, check=True)
-        # terza riga di eik_stats.dat: la quarta colonna sono le iterazioni del FIM
-        its = int(open(sims_dir / f"run_{k}" / "eik_stats.dat").readlines()[2].split()[3])
-        rows.append({"mappa": k, "iterazioni": its, "converge": int(its < MAX_ITER)})
-    pd.DataFrame(rows).to_csv(sims_dir / "mappe.csv", index=False)
 
 
 if __name__ == "__main__":

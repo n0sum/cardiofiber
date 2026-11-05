@@ -101,47 +101,41 @@ le CV sono uniformi (e' uscito il tag 16: CV_L 1.155, CV_T 0.722 mm/ms,
 r = 1.6); con N = 43270 c'e' una zona per faccia. Dettagli in
 `experiments/README.md`.
 
-Il FIM di openCARP si ferma dopo 1000 iterazioni; le run che convergono ne
-fanno 96-166. Una mappa che non converge non entra nel LAT PLY dello
-scenario, e le altre tengono l'indice del loro sito. Mappe che non
-convergono: la 5 in `aniso_zone_1` e `aniso_zone_5000`, la 0 in
-`aniso_zone_50`, la 3 in `aniso_zone_43270`; negli altri scenari ci sono tutte e sei.
-
 ## Risultati attesi
 
 Errori pesati per area sulle facce stimabili: angolo di fibra in gradi,
 errori relativi in valore assoluto, in %, su CV_L e sul rapporto r.
 
-**aniso_zone_1**, tutte le mappe, cioe' 0-4 (`output/zone/aniso_zone_1/figure/numeri.csv`):
+**aniso_zone_1**, sei mappe (`output/zone/aniso_zone_1/figure/numeri.csv`):
 
 | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | CV_L q90 | r q50 | r q90 |
 |--------|--------|-------|--------|--------|--------|---------|
-| 0.33 % | 0.975° | 4.95° | 0.66 % | 3.69 % | 1.41 % | 7.81 %  |
+| 0.13 % | 0.907° | 4.27° | 0.67 % | 3.32 % | 1.30 % | 6.90 %  |
 
 **Sottoinsiemi di mappe** su `aniso_zone_1` (`output/subsets/figure/numeri.csv`,
-confronto appaiato con tutte e cinque le mappe): con 3 mappe, sulle 10
-terne, area non stimabile 4.0-9.6 % (mediana 5.6 %), angolo q50 1.17-1.76°
-(mediana 1.37°), angolo q90 9.2-14.9° (mediana 10.5°); con 5 mappe i valori
-di `aniso_zone_1`.
+confronto appaiato con le sei mappe): con 3 mappe, sulle 20 terne, area non
+stimabile 4.0-9.7 % (mediana 5.3 %), angolo q50 1.17-1.77° (mediana
+1.37°), angolo q90 9.2-15.0° (mediana 10.6°); con 6 mappe i valori di
+`aniso_zone_1`.
 
 **Zone** (`output/zone/figure/numeri.csv`), d = diametro medio di zona:
 
-| N     | d [mm] | mappe | area non stimabile | angolo q50 | angolo q90 |
-|-------|--------|-------|--------------------|------------|------------|
-| 43270 | 0.59   | 5     | 3.85 %             | 5.90°      | 22.1°      |
-| 25000 | 0.78   | 6     | 1.58 %             | 4.71°      | 17.4°      |
-| 5000  | 1.74   | 5     | 2.22 %             | 3.54°      | 16.4°      |
-| 500   | 5.51   | 6     | 0.93 %             | 1.71°      | 8.89°      |
-| 50    | 17.4   | 5     | 1.63 %             | 1.14°      | 7.23°      |
-| 1     | 123    | 5     | 0.33 %             | 0.975°     | 4.95°      |
+| N     | d [mm] | area non stimabile | angolo q50 | angolo q90 |
+|-------|--------|--------------------|------------|------------|
+| 43270 | 0.59   | 1.48 %             | 5.25°      | 18.4°      |
+| 25000 | 0.78   | 1.58 %             | 4.71°      | 17.4°      |
+| 5000  | 1.74   | 1.12 %             | 3.26°      | 14.4°      |
+| 500   | 5.51   | 0.93 %             | 1.71°      | 8.89°      |
+| 50    | 17.4   | 0.52 %             | 1.08°      | 5.72°      |
+| 1     | 123    | 0.13 %             | 0.907°     | 4.27°      |
 
 **Roney su aniso_zone_1**, terne di mappe (`output/roney/figure/numeri.csv`;
-errori sulle facce stimabili in entrambi i metodi, 76.2 % dell'area):
+errori sulle facce stimabili in entrambi i metodi, 75.7 % dell'area):
 
 | metodo  | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | r q50  |
 |---------|--------------------|------------|------------|----------|--------|
-| Roney   | 21.9 %             | 6.60°      | 21.5°      | 13.5 %   | 11.1 % |
-| faccia  | 5.8 %              | 1.30°      | 9.12°      | 0.82 %   | 2.06 % |
+| Roney   | 22.5 %             | 6.65°      | 21.2°      | 12.9 %   | 10.9 % |
+| faccia  | 5.8 %              | 1.31°      | 9.09°      | 0.82 %   | 2.13 % |
 
 ## Unita' e formati
 
@@ -157,8 +151,7 @@ errori sulle facce stimabili in entrambi i metodi, 76.2 % dell'area):
 - `experiments/region_cv/aniso_random.csv`: `region_tag,CV_L,CV_T` in mm/ms;
   `run_sims.py` converte in mm/s per openCARP.
 - `data/reference/LA_LAT_NOME.ply`: PLY binario, per vertice `x y z` (mm) e
-  `lat_k` (ms), una per sito k la cui mappa converge
-  (`data/reference/sims/NOME/mappe.csv`). `LA_GT_NOME.ply`: per faccia `fx fy fz` (fibra),
+  `lat_0 ... lat_5` (ms), `lat_k` dal sito k. `LA_GT_NOME.ply`: per faccia `fx fy fz` (fibra),
   `CV_L CV_T` (mm/ms), `elem_tag`.
 - `output/**/errors.csv`: una riga per faccia; colonne in `experiments/README.md`.
 

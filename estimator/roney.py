@@ -12,7 +12,7 @@ Uso, dalla radice del repository:
     python estimator/roney.py experiments/roney.conf aniso_zone_1 aniso_zone_50 ...
 Legge data/reference/LA_LAT_SCENARIO.ply e, solo dopo la stima,
 data/reference/LA_GT_SCENARIO.ply. Le terne sono quelle delle mappe lat_k
-presenti nel LAT PLY, cioe' che convergono; k e' l'indice del sito. Scrive
+del LAT PLY; k e' l'indice del sito. Scrive
 output/roney/SCENARIO/roney/sub_i-j-k/errors.csv, con le colonne di
 exportErrorsAsCsv in Mesh.cpp.
 

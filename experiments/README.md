@@ -62,20 +62,13 @@ python simulator/stage1/opencarp/run_sims.py NOME CSV MESH_BASE   # -> data/refe
 python simulator/convert/toPly.py NOME CSV MESH_BASE              # -> lat_ply e ground_truth_ply
 ```
 
-`run_sims.py` lancia una run eikonale per sito di stimolo, con al massimo
-1000 iterazioni del FIM (le run che convergono ne fanno un centinaio), e
-legge le iterazioni da `eik_stats.dat`. In `sims/NOME/mappe.csv` scrive,
-per sito, `mappa,iterazioni,converge`: una mappa che ha raggiunto 1000
-iterazioni non converge. `toPly.py` mette in `lat_ply` solo le mappe che
-convergono, come `lat_k` con k l'indice del sito (la riga di
-`simulator/stage1/pacing_sites.csv`): gli indici possono saltare. Prende
-coordinate e fibre da `data/augmenta/` (mm), triangoli e tag da
-`MESH_BASE.elem`.
+`run_sims.py` lancia una run eikonale per sito di stimolo. `toPly.py` mette
+in `lat_ply` le sei mappe come `lat_k`, con k l'indice del sito (la riga di
+`simulator/stage1/pacing_sites.csv`); prende coordinate e fibre da
+`data/augmenta/` (mm), triangoli e tag da `MESH_BASE.elem`.
 
-Tutto cio' che enumera le mappe usa solo quelle di `lat_ply`: `maps = all`,
-i sottoinsiemi di `subsets.py`, le terne di `roney.py` e quindi la scelta
-delle terne di `mappe.py`. `maps = 0,2,4` tiene solo le mappe di quei
-siti, nell'ordine dato; un sito che non c'e' in `lat_ply` e' un errore.
+`maps = 0,2,4` tiene solo le mappe di quei siti, nell'ordine dato; un sito
+che non c'e' in `lat_ply` e' un errore.
 
 Una chiave mancante, o un file inesistente, ferma Tesi0; non ci sono
 default. Le chiavi sconosciute si ignorano; se una chiave compare piu'
@@ -95,9 +88,8 @@ E' non stimabile se ha meno di 3 mappe, se il valore singolare minimo del
 sistema non supera `mask.min_singular_value` (fronti quasi paralleli) o se
 l'autovalore minore del tensore stimato (CV_T^2) non e' positivo.
 
-Le mappe che non convergono non entrano in `lat_ply` (vedi *Scenari*); una
-LAT negativa (-1, FIM non convergito) in una mappa che converge ferma
-`simulator/convert/toPly.py`.
+Le LAT negative (FIM non convergito, -1) vengono rifiutate a monte, da
+`simulator/convert/toPly.py`, prima di scrivere `lat_ply`.
 
 ## CSV di uscita
 
@@ -169,9 +161,9 @@ con `MESH.ply` un `lat_ply` della stessa mesh. Nei `.conf` di
 ## Sottoinsiemi di mappe
 
 `subsets.py SCENARIO OUT_DIR [K]` scrive un `.conf` per ogni sottoinsieme di
-k >= 3 (o solo k = K) delle mappe di SCENARIO che convergono (da
-`data/reference/sims/SCENARIO/mappe.csv`; con sei mappe 20 + 15 + 6 + 1 =
-42, con cinque 10 + 5 + 1 = 16), con `output_ply` = `none`. L'ID e' `sub_`
+k >= 3 (o solo k = K) delle mappe (le righe di
+`simulator/stage1/pacing_sites.csv`; con sei mappe 20 + 15 + 6 + 1 = 42),
+con `output_ply` = `none`. L'ID e' `sub_`
 con gli indici di sito uniti da trattino, es. `sub_0-2-4`: niente virgole,
 perche' `experiment_id` finisce non quotato nel CSV.
 `analysis/analisi.py --sottoinsiemi` etichetta i sottoinsiemi con gli
@@ -219,10 +211,10 @@ in funzione di d in scala log, q50 e q90.
 
 Metodo 2 di Roney et al. 2019 su terne di mappe (`estimator/roney.py`,
 `experiments/roney.conf`; comandi in fondo a `run_all.sh`), per ogni
-scenario sulle terne delle mappe che convergono:
+scenario:
 `output/roney/SCENARIO/{roney,faccia}/sub_*/errors.csv`, confronto in
 `output/roney/figure/` (`analisi.py --roney`): `numeri.csv` per scenario e
-braccio, con il numero di mappe dello scenario; `terne.csv` per terna;
+braccio; `terne.csv` per terna;
 `zona_1.png`, un punto per terna su `aniso_zone_1`; `zone.png`, in
 funzione di d.
 

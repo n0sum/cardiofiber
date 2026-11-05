@@ -3,14 +3,13 @@
 Mappe degli errori per faccia in PLY (Tesi0), su aniso_zone_1, in output/mappe/.
 Per ogni caso tre PLY, uno per errore: CASO_angolo.ply, CASO_cv_l.ply,
 CASO_rapporto.ply. I casi:
-    faccia_tutte_le_mappe      stimatore per faccia, tutte le mappe che convergono
+    faccia_tutte_le_mappe      stimatore per faccia, tutte le mappe
     faccia_migliore_sub_i-j-k  stimatore per faccia, terna con angolo q50 minimo
     faccia_peggiore_sub_i-j-k  stimatore per faccia, terna con angolo q50 massimo
     roney_migliore_sub_i-j-k   Roney, idem
     roney_peggiore_sub_i-j-k
 Angolo q50 di ogni terna da output/roney/figure/terne.csv (analisi.py --roney):
-facce stimabili nei due bracci, i punti di zona_1.png. Le terne sono solo
-quelle delle mappe che convergono.
+facce stimabili nei due bracci, i punti di zona_1.png.
 
 Scrive in output/mappe/confs/ i .conf dello stimatore per faccia. Le stime di
 Roney sono gia' in output/roney/aniso_zone_1/roney/: per ognuna, dopo aver

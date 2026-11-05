@@ -2,9 +2,8 @@
 """
 Da openCARP a PLY binario: i due ingressi di Tesi0 per uno scenario.
 
-    data/reference/LA_LAT_NOME.ply   per vertice x y z (mm) e lat_k (ms), una per
-                                     mappa k che converge (sims/NOME/mappe.csv):
-                                     k e' la riga del sito in pacing_sites.csv
+    data/reference/LA_LAT_NOME.ply   per vertice x y z (mm) e lat_0 ... lat_5 (ms):
+                                     un act.igb per riga di pacing_sites.csv
     data/reference/LA_GT_NOME.ply    per faccia fibra fx fy fz, CV_L CV_T (mm/ms)
                                      ed elem_tag: la verita' per la valutazione
 
@@ -26,7 +25,8 @@ import numpy as np
 
 ROOT     = Path(__file__).resolve().parents[2]                    # radice del repository
 AUGMENTA = ROOT / "data" / "augmenta" / "LA_endo_with_fiber"      # senza estensione
-SIMS_DIR = ROOT / "data" / "reference" / "sims"                   # NOME/run_k/act.igb, NOME/mappe.csv
+SITES    = ROOT / "simulator" / "stage1" / "pacing_sites.csv"
+SIMS_DIR = ROOT / "data" / "reference" / "sims"                   # NOME/run_k/act.igb
 
 
 def write_ply(path, vertex, face):
@@ -51,7 +51,7 @@ def main():
     elem = np.loadtxt(f"{mesh_base}.elem", skiprows=1, usecols=(1, 2, 3, 4), dtype=np.int64)
     tri, tag = elem[:, :3], elem[:, 3]
 
-    maps = [int(r["mappa"]) for r in csv.DictReader(open(SIMS_DIR / name / "mappe.csv")) if r["converge"] == "1"]
+    maps = range(len(list(csv.DictReader(open(SITES)))))           # la mappa k e' la riga k
     lat = []
     for k in maps:
         a = np.fromfile(SIMS_DIR / name / f"run_{k}" / "act.igb", dtype="<f4", offset=1024)   # header di 1024 byte

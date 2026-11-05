@@ -206,7 +206,6 @@ void Mesh::importMultiLatPly(std::string filename) {
     for (size_t i = 0; i < x.size(); ++i) vPos[i] = vec3(x[i], y[i], z[i]);
 
     // vQualities[mapIndex][vertexIndex]; lat_k e' la mappa del sito k, mapIds[mapIndex] = k.
-    // Le mappe che non convergono mancano, quindi k puo' saltare dei valori.
     for (const std::string& name : v.getPropertyNames())
         if (name.starts_with("lat_")) {
             mapIds.push_back(std::stoi(name.substr(4)));
