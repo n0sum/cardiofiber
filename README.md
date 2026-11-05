@@ -57,7 +57,7 @@ Analysis 74 (2021) 102210.
 **Uscita di AugmentA** `data/augmenta/LA_endo_with_fiber.{pts,elem,lon}`
 (3.7 MB): l'atrio sinistro medio dell'SSM, 21811 vertici e 43270
 triangoli, con fibre e tag di regione per triangolo. Generata dall'SSM con
-`make_mean.py`, `split_atria.py`, `extract_la.py` e poi AugmentA con i flag
+`make_mean.py`, `extract_la.py` e poi AugmentA con i flag
 della sezione *Rigenerare la LA e le fibre*. Il commit di AugmentA usato
 non e' noto. Licenza di AugmentA: Academic Public License. Citazione:
 L. Azzolin et al., *AugmentA: patient-specific augmented atrial model
@@ -93,7 +93,7 @@ Uscite, per esperimento, in `output/`:
 | `subsets/`                                 | sottoinsiemi di mappe, `figure/numeri.csv` e grafici |
 | `zone/`                                    | scenari `aniso_zone_N`, `figure/{zone.png,numeri.csv}` |
 | `roney/`                                   | Roney contro stimatore per faccia, `figure/{const.png,zone.png,numeri.csv,terne.csv}` |
-| `mappe/`                                   | PLY degli errori per faccia su `aniso_const`, per terne scelte e sei mappe |
+| `mappe/`                                   | PLY degli errori per faccia su `aniso_const` (sei mappe e terne scelte), uno per errore, per MeshLab |
 
 Scenari: in `aniso_const` CV uniformi, CV_L 1.05 e CV_T 0.525 mm/ms; in
 `aniso_zone_N` la mesh e' divisa in N zone casuali e ogni zona ha una delle
@@ -161,7 +161,6 @@ rieseguita da capo; il commit di AugmentA della run originale non e' noto.
 
 ```bash
 python simulator/stage1/make_mean.py      # -> data/stage1/ssm_mean_surface.vtk
-python simulator/stage1/split_atria.py    # -> data/stage1/component_{0,1}.vtk
 python simulator/stage1/extract_la.py     # -> data/stage1/ssm_mean_LA.vtk, 21811 vertici / 43270 triangoli
 cp simulator/stage1/ssm_mean_LA_apexes.csv data/stage1/
 ```

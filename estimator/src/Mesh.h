@@ -39,13 +39,6 @@ struct FaceGroundTruth {
     int region_tag = 0;
 };
 
-// Errori di una faccia (stimato vs vero). Se valid == false (faccia non stimabile) err_angle e' NaN.
-// Gli errori relativi sulle CV si calcolano in analisi.py da CV_*_est e CV_*_true.
-struct FaceError {
-    float err_angle = 0.0f;         // gradi, acos(|a.b|): senza verso
-    bool valid = false;
-};
-
 class Mesh{
     bool imported = false;
     std::vector<Face> faces;
@@ -59,7 +52,6 @@ class Mesh{
     std::vector<FaceGroundTruth> fGT;
 
 public:
-    Mesh();
     //import export
     void exportAsPly(const std::string &filename) const;
     void exportAllTangentsAsObj(std::string filename) const;
@@ -67,19 +59,18 @@ public:
     // Tiene solo le mappe LAT indicate, nell'ordine dato. Da chiamare prima del calcolo dei gradienti.
     void selectMaps(const std::vector<int>& indices);
     // Ground truth per faccia (elemento face: fx, fy, fz, CV_L, CV_T, elem_tag), copiata cosi' com'e'.
-    // Richiede la mesh gia' importata.
     void importPlyGroundTruth(const std::string& filename);
 
-    // Errori per faccia di una stima rispetto alla ground truth. Senza stato: invocabili piu' volte su stime diverse.
-    std::vector<FaceError> computeAnisotropyErrors(const std::vector<FaceAnisotropy>& est) const;
-    // CSV con una riga per faccia, nessuna aggregazione. experimentId e' la prima colonna, ripetuta su ogni
-    // riga: i CSV di esperimenti diversi si concatenano e si raggruppano senza perdere la provenienza.
+    // CSV con una riga per faccia, nessuna aggregazione; l'errore angolare si calcola qui. experimentId e' la
+    // prima colonna, ripetuta su ogni riga: i CSV di esperimenti diversi si concatenano e si raggruppano senza
+    // perdere la provenienza.
     void exportErrorsAsCsv(const std::string& filename, const std::string& experimentId,
                            const std::vector<FaceAnisotropy>& est) const;
-    // PLY binario con gli errori per faccia letti da un errors.csv (di exportErrorsAsCsv o di estimator/roney.py)
-    // sulla mesh importata: per faccia estimable, err_angle (gradi), err_cv_l e err_rapporto (%, con segno,
-    // r = CV_L / CV_T), come load() in analysis/analisi.py; NaN sulle facce non stimabili.
-    void exportErrorsAsPly(const std::string& errorsCsv, const std::string& filename) const;
+    // Tre PLY binari per MeshLab, uno per errore, letti da un errors.csv (di exportErrorsAsCsv o di
+    // estimator/roney.py): base_angolo.ply (gradi), base_cv_l.ply e base_rapporto.ply (%, con segno,
+    // r = CV_L / CV_T), come load() in analysis/analisi.py. L'errore e' la quality della faccia, NaN se
+    // la faccia non e' stimabile.
+    void exportErrorsAsPly(const std::string& errorsCsv, const std::string& base) const;
 
 
     //processing
@@ -103,6 +94,7 @@ private:
     vec3 faceGradientOf(int faceIndex, int mapIndex ) const;
     //import export helpers
     void exportTangentsAsObj(std::string filename, int mapIndex) const;
+    void exportQualityAsPly(const std::string& filename, const std::vector<float>& quality) const;
 
 
 };

@@ -46,7 +46,7 @@ def read_conf(path):
 
 
 def read_ply(path):
-    """PLY binario di multiLatToPly.py / fibersToPly.py: vertici tutti float, facce
+    """PLY binario di simulator/convert/toPly.py: vertici tutti float, facce
     'list uchar int' seguita da proprieta' float/int."""
     f = open(path, "rb")
     elems, cur = {}, None

@@ -10,7 +10,7 @@ MASK = ROOT / "simulator" / "stage1" / "la_vertex_mask.npy"
 # connettivita' di riferimento per tutte le forme e' LA_endo_with_fiber.elem,
 # mai representer/cells.
 
-LA_REGION = 0   # <-- se il conteggio vene dice component_1, metti 1
+LA_REGION = 0   # RegionId della LA fra le due componenti connesse (atri) della superficie
 
 mesh = pv.read(DIR / "ssm_mean_surface.vtk")
 

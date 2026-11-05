@@ -9,11 +9,6 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-if [ ! -f data/augmenta/LA_endo_with_fiber.pts ]; then
-    echo "manca data/augmenta/LA_endo_with_fiber.pts: e' nel repository, il clone e' incompleto"
-    exit 1
-fi
-
 python simulator/stage1/opencarp/mm_to_um.py      # -> data/reference/LA_um.*
 
 # numero di zone degli scenari aniso_zone_N (43270 = una zona per faccia)
@@ -26,8 +21,7 @@ done
 simula() {
     s=$1; csv=$2; mesh=$3
     python simulator/stage1/opencarp/run_sims.py $s $csv $mesh   # -> data/reference/sims/$s/run_*/act.igb
-    python simulator/convert/multiLatToPly.py $s                 # -> data/reference/LA_LAT_$s.ply
-    python simulator/convert/fibersToPly.py $s $csv $mesh        # -> data/reference/LA_GT_$s.ply
+    python simulator/convert/toPly.py $s $csv $mesh              # -> data/reference/LA_{LAT,GT}_$s.ply
 }
 simula aniso_const experiments/region_cv/aniso_const.csv data/reference/LA_um
 for n in $ZONE; do
@@ -57,8 +51,8 @@ python estimator/roney.py experiments/roney.conf aniso_const $(for n in $ZONE; d
 python analysis/analisi.py --roney                # -> output/roney/figure/
 
 # mappe degli errori per faccia in PLY, su aniso_const: sei mappe e, per braccio, le terne con
-# angolo q50 minimo e massimo (da output/roney/figure/terne.csv)
-python experiments/mappe.py | while read -r csv ply; do   # -> output/mappe/confs/*.conf
-    ./estimator/build/Tesi0 --ply data/reference/LA_LAT_aniso_const.ply "$csv" "$ply"
+# angolo q50 minimo e massimo (da output/roney/figure/terne.csv); tre PLY per caso, uno per errore
+python experiments/mappe.py | while read -r csv base; do   # -> output/mappe/confs/*.conf
+    ./estimator/build/Tesi0 --ply data/reference/LA_LAT_aniso_const.ply "$csv" "$base"
 done
-./estimator/build/Tesi0 output/mappe/confs/*.conf  # -> output/mappe/*.ply
+./estimator/build/Tesi0 output/mappe/confs/*.conf  # -> output/mappe/*_{angolo,cv_l,rapporto}.ply

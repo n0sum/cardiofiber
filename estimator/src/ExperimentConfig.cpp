@@ -1,8 +1,7 @@
 #include "ExperimentConfig.h"
 #include <fstream>
 #include <map>
-#include <set>
-#include <stdexcept>
+#include <sstream>
 
 namespace {
     std::string trim(const std::string& s) {
@@ -12,51 +11,33 @@ namespace {
         return s.substr(b, e - b + 1);
     }
 
+    // "0,2,4" -> {0, 2, 4}
     std::vector<int> parseMapList(const std::string& v) {
         std::vector<int> result;
-        size_t start = 0;
-        while (true) {
-            const size_t comma = v.find(',', start);
-            result.push_back(std::stoi(v.substr(start, comma == std::string::npos ? std::string::npos : comma - start)));
-            if (comma == std::string::npos) break;
-            start = comma + 1;
-        }
+        std::stringstream ss(v);
+        for (std::string tok; std::getline(ss, tok, ',');) result.push_back(std::stoi(tok));
         return result;
     }
 }
 
 ExperimentConfig loadExperimentConfig(const std::string& path) {
-    std::ifstream in(path);
-    if (!in) throw std::runtime_error(path + ": impossibile aprire il file di esperimento");
-
-    const std::set<std::string> known = {
-        "experiment_id", "lat_ply", "ground_truth_ply", "maps",
-        "mask.min_singular_value", "output_csv", "output_ply"};
     std::map<std::string, std::string> kv;
-
-    std::string line;
-    for (int lineNo = 1; std::getline(in, line); ++lineNo) {
+    std::ifstream in(path);
+    for (std::string line; std::getline(in, line);) {
         line = trim(line);
         if (line.empty() || line[0] == '#') continue;
         const size_t eq = line.find('=');
-        const std::string key = trim(line.substr(0, eq));
-        if (!known.contains(key))
-            throw std::runtime_error(path + ":" + std::to_string(lineNo) + ": chiave non riconosciuta: '" + key + "'");
-        kv[key] = trim(line.substr(eq + 1));
+        kv[trim(line.substr(0, eq))] = trim(line.substr(eq + 1));
     }
 
-    for (const auto& k : known)
-        if (!kv.contains(k)) throw std::runtime_error(path + ": chiave obbligatoria mancante: '" + k + "'");
-
     ExperimentConfig c;
-    c.sourcePath = path;
-    c.experimentId = kv["experiment_id"];
-    c.latPly = kv["lat_ply"];
-    c.groundTruthPly = kv["ground_truth_ply"];
-    c.outputCsv = kv["output_csv"];
-    c.outputPly = kv["output_ply"];
-    if (kv["maps"] == "all") c.allMaps = true;
-    else c.maps = parseMapList(kv["maps"]);
-    c.minSingularValue = std::stod(kv["mask.min_singular_value"]);
+    c.experimentId = kv.at("experiment_id");
+    c.latPly = kv.at("lat_ply");
+    c.groundTruthPly = kv.at("ground_truth_ply");
+    c.outputCsv = kv.at("output_csv");
+    c.outputPly = kv.at("output_ply");
+    if (kv.at("maps") == "all") c.allMaps = true;
+    else c.maps = parseMapList(kv.at("maps"));
+    c.minSingularValue = std::stod(kv.at("mask.min_singular_value"));
     return c;
 }

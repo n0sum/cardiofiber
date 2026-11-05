@@ -15,7 +15,6 @@
 #include <iomanip>
 #include <stdexcept>
 #include <sstream>
-#include <filesystem>
 
 
 //helpers
@@ -33,7 +32,6 @@ std::vector<vec3> normalizeVectors(const std::vector<vec3> &vectors) {
 // viene dal file di esperimento.
 namespace {
     constexpr int    kMinGradients       = 3;       // sotto: sistema sottodeterminato
-    constexpr double kMinEigenvalue      = 0.0;     // lambda_2 deve essere > di questo (CV_T^2, mm^2/ms^2)
 
     struct LsqResult {
         std::array<double,3> m{};
@@ -55,7 +53,7 @@ namespace {
                     beta  += R[i][q]*R[i][q];
                     gamma += R[i][p]*R[i][q];
                 }
-                if (std::abs(gamma) <= 1e-15 * std::sqrt(alpha*beta) || gamma == 0.0) continue;
+                if (std::abs(gamma) <= 1e-15 * std::sqrt(alpha*beta)) continue;
                 rotated = true;
                 const double zeta = (beta - alpha) / (2.0*gamma);
                 const double t = (zeta >= 0 ? 1.0 : -1.0) / (std::abs(zeta) + std::sqrt(1.0 + zeta*zeta));
@@ -175,7 +173,7 @@ FaceAnisotropy Mesh::estimateFace(int i, double minSingularValue) const {
     const double differenza = std::sqrt((M11 - M22)*(M11 - M22) + (2.0*M12)*(2.0*M12));
     const double lambda1 = (somma + differenza) / 2.0;   // CV_L^2
     const double lambda2 = (somma - differenza) / 2.0;   // CV_T^2
-    if (!(lambda2 > kMinEigenvalue)) return fa;
+    if (!(lambda2 > 0.0)) return fa;                     // CV_T^2 deve essere positivo
 
     const double theta = 0.5 * std::atan2(2.0*M12, M11 - M22);
     fa.CV_L = static_cast<float>(std::sqrt(lambda1));
@@ -186,15 +184,12 @@ FaceAnisotropy Mesh::estimateFace(int i, double minSingularValue) const {
 }
 
 std::vector<FaceAnisotropy> Mesh::estimateAnisotropy(double minSingularValue) const {
-    if (fTangents.size() != vQualities.size()) throw std::runtime_error("estimateAnisotropy: gradienti non calcolati");
     std::vector<FaceAnisotropy> est(faces.size());
     for (int i = 0; i < faces.size(); ++i) est[i] = estimateFace(i, minSingularValue);
     return est;
 }
 
 // import export
-
-Mesh::Mesh() = default;
 
 void Mesh::importMultiLatPly(std::string filename) {
     if (imported) throw std::runtime_error("already imported a mesh in this object");
@@ -220,7 +215,6 @@ void Mesh::importMultiLatPly(std::string filename) {
 }
 
 void Mesh::selectMaps(const std::vector<int>& indices) {
-    if (!fTangents.empty()) throw std::runtime_error("selectMaps: gradienti gia' calcolati");
     std::vector<std::vector<float>> selected;
     selected.reserve(indices.size());
     for (int k : indices) {
@@ -233,8 +227,6 @@ void Mesh::selectMaps(const std::vector<int>& indices) {
 }
 
 void Mesh::importPlyGroundTruth(const std::string& filename) {
-    if (faces.empty()) throw std::runtime_error("importPlyGroundTruth: importare prima la mesh");
-
     happly::PLYData plyIn(filename);
     auto& fe = plyIn.getElement("face");
     const std::vector<float> fx = fe.getProperty<float>("fx");
@@ -243,121 +235,83 @@ void Mesh::importPlyGroundTruth(const std::string& filename) {
     const std::vector<float> cvL = fe.getProperty<float>("CV_L");
     const std::vector<float> cvT = fe.getProperty<float>("CV_T");
     const std::vector<int> tag = fe.getProperty<int>("elem_tag");
-    if (fx.size() != faces.size())
-        throw std::runtime_error("importPlyGroundTruth: " + std::to_string(fx.size()) + " facce nel file, "
-                                 + std::to_string(faces.size()) + " nella mesh");
 
     fGT.resize(faces.size());
     for (int i = 0; i < faces.size(); ++i)
         fGT[i] = {vec3(fx[i], fy[i], fz[i]), cvL[i], cvT[i], tag[i]};
 }
 
-std::vector<FaceError> Mesh::computeAnisotropyErrors(const std::vector<FaceAnisotropy>& est) const {
-    if (est.size() != faces.size() || fGT.size() != faces.size())
-        throw std::runtime_error("computeAnisotropyErrors: stima o ground truth non allineate alle facce");
-    const float nan = std::numeric_limits<float>::quiet_NaN();
-    std::vector<FaceError> err(faces.size());
-    for (int i = 0; i < faces.size(); ++i) {
-        FaceError &e = err[i];
-        e.err_angle = nan;
-        if (!est[i].estimable) continue;                      // lasciata marcata, non esclusa ne' riempita
-
-        const dvec3 a(est[i].fiber_dir), b(fGT[i].fiber_dir);
-        // |a.b|: nessuna scelta di orientamento
-        e.err_angle = static_cast<float>(std::acos(std::min(1.0, std::abs(dot(a, b)))) * 180.0 / M_PI);
-        e.valid = true;
-    }
-    return err;
-}
-
 void Mesh::exportErrorsAsCsv(const std::string& filename, const std::string& experimentId,
                              const std::vector<FaceAnisotropy>& est) const {
-    const std::vector<FaceError> err = computeAnisotropyErrors(est);
     const std::vector<vec3> av = areaVectors();                // cross(e1,e2): area = |cross| / 2
     std::ofstream out(filename);
-    if (!out) throw std::runtime_error("exportErrorsAsCsv: impossibile aprire " + filename);
     out << std::scientific << std::setprecision(9);
     out << "experiment_id,face_id,area,region_tag,estimable,k_used,cond,CV_L_est,CV_T_est,CV_L_true,CV_T_true,"
            "err_angle\n";
     for (int i = 0; i < faces.size(); ++i) {
         const FaceAnisotropy &a = est[i];
         const FaceGroundTruth &g = fGT[i];
-        const FaceError &e = err[i];
         out << experimentId << ',' << i << ',' << length(av[i]) / 2.0f << ',' << g.region_tag << ',' << (a.estimable ? 1 : 0) << ','
             << a.k_used << ',';
         if (a.cond > 0.0f) out << a.cond;                       // vuota se non calcolata
         out << ',';
         if (a.estimable) out << a.CV_L << ',' << a.CV_T << ','; else out << ",,";
         out << g.CV_L << ',' << g.CV_T << ',';
-        if (e.valid) out << e.err_angle;
+        if (a.estimable) {                                      // vuoto se non stimabile
+            // |a.b|: angolo fra direzioni, senza verso
+            const double cosAngle = std::abs(dot(dvec3(a.fiber_dir), dvec3(g.fiber_dir)));
+            out << static_cast<float>(std::acos(std::min(1.0, cosAngle)) * 180.0 / M_PI);
+        }
         out << '\n';
     }
-    out.close();
-    if (!out) throw std::runtime_error("exportErrorsAsCsv: errore di scrittura su " + filename);
 }
 
-void Mesh::exportErrorsAsPly(const std::string& errorsCsv, const std::string& filename) const {
-    std::ifstream in(errorsCsv);
-    if (!in) throw std::runtime_error("exportErrorsAsPly: impossibile aprire " + errorsCsv);
+void Mesh::exportErrorsAsPly(const std::string& errorsCsv, const std::string& base) const {
+    // campi di una riga CSV; la virgola in piu' fa uscire anche l'ultimo campo se e' vuoto
     auto split = [](const std::string& line) {
-        std::vector<std::string> f;
-        std::stringstream ss(line);
-        for (std::string x; std::getline(ss, x, ',');) f.push_back(x);
-        if (!line.empty() && line.back() == ',') f.emplace_back();      // ultima colonna vuota
-        return f;
+        std::vector<std::string> fields;
+        std::stringstream ss(line + ',');
+        for (std::string x; std::getline(ss, x, ',');) fields.push_back(x);
+        return fields;
     };
+    std::ifstream in(errorsCsv);
     std::string line;
     std::getline(in, line);
     const std::vector<std::string> header = split(line);
-    auto col = [&](const std::string& name) {
-        const auto it = std::find(header.begin(), header.end(), name);
-        if (it == header.end()) throw std::runtime_error("exportErrorsAsPly: manca la colonna " + name + " in " + errorsCsv);
-        return it - header.begin();
-    };
-    const auto cFace = col("face_id"), cEst = col("estimable"), cLe = col("CV_L_est"), cTe = col("CV_T_est"),
-               cLt = col("CV_L_true"), cTt = col("CV_T_true"), cAng = col("err_angle");
+    auto column = [&](const std::string& name) { return std::find(header.begin(), header.end(), name) - header.begin(); };
+    const auto cLe = column("CV_L_est"), cTe = column("CV_T_est"), cLt = column("CV_L_true"),
+               cTt = column("CV_T_true"), cAng = column("err_angle");
 
-    const double nan = std::numeric_limits<double>::quiet_NaN();
-    std::vector<int> estimable;
+    // una riga per faccia, nell'ordine di face_id; campo vuoto (faccia non stimabile) -> NaN
     std::vector<float> angle, cvL, ratio;
     while (std::getline(in, line)) {
         const std::vector<std::string> f = split(line);
-        auto num = [&](long c) { return f[c].empty() ? nan : std::stod(f[c]); };
-        if (std::stoi(f[cFace]) != static_cast<int>(estimable.size()))
-            throw std::runtime_error("exportErrorsAsPly: face_id fuori ordine in " + errorsCsv);
+        auto num = [&](long c) { return f.at(c).empty() ? std::numeric_limits<double>::quiet_NaN() : std::stod(f.at(c)); };
         const double Le = num(cLe), Te = num(cTe), Lt = num(cLt), Tt = num(cTt);
-        estimable.push_back(std::stoi(f[cEst]));
         angle.push_back(static_cast<float>(num(cAng)));
         cvL.push_back(static_cast<float>(100 * (Le - Lt) / Lt));
         ratio.push_back(static_cast<float>(100 * (Le / Te - Lt / Tt) / (Lt / Tt)));
     }
-    if (estimable.size() != faces.size())
-        throw std::runtime_error("exportErrorsAsPly: " + std::to_string(estimable.size()) + " righe in " + errorsCsv
-                                 + ", " + std::to_string(faces.size()) + " facce nella mesh");
 
-    std::vector<float> x(vPos.size()), y(vPos.size()), z(vPos.size());
-    for (int i = 0; i < vPos.size(); ++i) { x[i] = vPos[i].x; y[i] = vPos[i].y; z[i] = vPos[i].z; }
-    std::vector<std::vector<int>> vertex_indices(faces.size());
-    for (int i = 0; i < faces.size(); ++i) vertex_indices[i] = {faces[i].a, faces[i].b, faces[i].c};
+    exportQualityAsPly(base + "_angolo.ply", angle);
+    exportQualityAsPly(base + "_cv_l.ply", cvL);
+    exportQualityAsPly(base + "_rapporto.ply", ratio);
+}
 
-    happly::PLYData ply;
-    ply.addElement("vertex", vPos.size());
-    auto& v = ply.getElement("vertex");
-    v.addProperty<float>("x", x);
-    v.addProperty<float>("y", y);
-    v.addProperty<float>("z", z);
-    ply.addElement("face", faces.size());
-    auto& f = ply.getElement("face");
-    f.addListProperty<int>("vertex_indices", vertex_indices);
-    f.addProperty<int>("estimable", estimable);
-    f.addProperty<float>("err_angle", angle);
-    f.addProperty<float>("err_cv_l", cvL);
-    f.addProperty<float>("err_rapporto", ratio);
-    ply.comments.push_back("errori per faccia da " + errorsCsv);
-
-    const std::filesystem::path out(filename);
-    if (out.has_parent_path()) std::filesystem::create_directories(out.parent_path());
-    ply.write(filename, happly::DataFormat::Binary);
+// PLY binario little endian: vertici x y z, facce con la quality data, nient'altro.
+void Mesh::exportQualityAsPly(const std::string& filename, const std::vector<float>& quality) const {
+    std::ofstream out(filename, std::ios::binary);
+    out << "ply\nformat binary_little_endian 1.0\n"
+        << "element vertex " << vPos.size() << "\nproperty float x\nproperty float y\nproperty float z\n"
+        << "element face " << faces.size() << "\nproperty list uchar int vertex_indices\nproperty float quality\n"
+        << "end_header\n";
+    out.write(reinterpret_cast<const char*>(vPos.data()), vPos.size() * sizeof(vec3));     // 3 float per vertice
+    const unsigned char three = 3;
+    for (int i = 0; i < faces.size(); ++i) {
+        out.write(reinterpret_cast<const char*>(&three), 1);
+        out.write(reinterpret_cast<const char*>(&faces[i]), sizeof(Face));                // 3 int
+        out.write(reinterpret_cast<const char*>(&quality[i]), sizeof(float));
+    }
 }
 
 void Mesh::exportAsPly(const std::string &filename) const {
