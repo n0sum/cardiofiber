@@ -97,10 +97,13 @@ terne. Uscite in `output/`:
 
 Scenari: `aniso_zone_N`, la mesh divisa in N zone casuali (seme 0), ogni zona
 con una delle 25 combinazioni di CV_L e r = CV_L/CV_T di
-`region_cv/aniso_random.csv`, N = 1, 50, 500, 5000, 25000, 43270. Con N = 1
-le CV sono uniformi (e' uscito il tag 16: CV_L 1.155, CV_T 0.722 mm/ms,
-r = 1.6); con N = 43270 c'e' una zona per faccia. Dettagli in
-`experiments/README.md`.
+`region_cv/aniso_random.csv`, N = 1, 8, 70, 600: diametro medio di zona
+d = sqrt(4 A / (pi N)) ~ 123 / sqrt(N) mm, cioe' 123, 44, 15 e 5.0 mm, passi
+uguali in scala log. Con N = 1 le CV sono uniformi (e' uscito il tag 16:
+CV_L 1.155, CV_T 0.722 mm/ms, r = 1.6); con N = 600 le zone sono grandi come
+il disco del metodo di Roney (diametro 5 mm), che presuppone CV uniformi al
+suo interno: con zone piu' piccole il confronto misurerebbe solo che il
+presupposto e' violato. Dettagli in `experiments/README.md`.
 
 ## Risultati attesi
 
@@ -126,22 +129,27 @@ stimabile 4.0-9.7 % (mediana 5.3 %), angolo q50 1.17-1.77° (mediana
 
 **Zone**, sei mappe (`numeri.csv`, righe `sub_0-1-2-3-4-5`), d = diametro medio di zona:
 
-| N     | d [mm] | area non stimabile | angolo q50 | angolo q90 |
-|-------|--------|--------------------|------------|------------|
-| 43270 | 0.59   | 1.48 %             | 5.25°      | 18.4°      |
-| 25000 | 0.78   | 1.58 %             | 4.71°      | 17.4°      |
-| 5000  | 1.74   | 1.12 %             | 3.26°      | 14.4°      |
-| 500   | 5.51   | 0.93 %             | 1.71°      | 8.89°      |
-| 50    | 17.4   | 0.52 %             | 1.08°      | 5.72°      |
-| 1     | 123    | 0.13 %             | 0.907°     | 4.27°      |
+| N   | d [mm] | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | r q50  |
+|-----|--------|--------------------|------------|------------|----------|--------|
+| 600 | 5.03   | 1.28 %             | 1.78°      | 9.50°      | 1.99 %   | 4.69 % |
+| 70  | 14.7   | 0.57 %             | 1.22°      | 6.50°      | 1.34 %   | 2.99 % |
+| 8   | 43.6   | 0.42 %             | 0.882°     | 4.70°      | 1.00 %   | 2.16 % |
+| 1   | 123    | 0.13 %             | 0.907°     | 4.27°      | 0.67 %   | 1.30 % |
 
-**Roney su aniso_zone_1**, terne di mappe (`confronto.csv`, righe `sub` = `tutte`;
-errori sulle facce stimabili in entrambi i metodi, 75.7 % dell'area):
+**Roney contro stimatore per faccia**, terne di mappe (`confronto.csv`, righe
+`sub` = `tutte`): area non stimabile di ogni metodo da solo, errori sulle
+facce stimabili in entrambi (area appaiata), messe insieme sulle 20 terne:
 
-| metodo  | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | r q50  |
-|---------|--------------------|------------|------------|----------|--------|
-| Roney   | 22.5 %             | 6.65°      | 21.2°      | 12.9 %   | 10.9 % |
-| faccia  | 5.8 %              | 1.31°      | 9.09°      | 0.82 %   | 2.13 % |
+| N   | area appaiata | metodo | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | r q50  |
+|-----|---------------|--------|--------------------|------------|------------|----------|--------|
+| 1   | 75.7 %        | Roney  | 22.5 %             | 6.65°      | 21.2°      | 12.9 %   | 10.9 % |
+|     |               | faccia | 5.8 %              | 1.31°      | 9.09°      | 0.82 %   | 2.13 % |
+| 8   | 55.0 %        | Roney  | 42.4 %             | 9.16°      | 29.1°      | 13.2 %   | 14.6 % |
+|     |               | faccia | 9.8 %              | 1.34°      | 10.0°      | 1.08 %   | 3.24 % |
+| 70  | 54.8 %        | Roney  | 41.8 %             | 8.75°      | 30.2°      | 13.9 %   | 15.4 % |
+|     |               | faccia | 12.5 %             | 1.63°      | 12.4°      | 1.27 %   | 3.84 % |
+| 600 | 52.3 %        | Roney  | 42.6 %             | 8.69°      | 29.5°      | 15.0 %   | 17.8 % |
+|     |               | faccia | 16.2 %             | 2.38°      | 17.0°      | 1.90 %   | 6.41 % |
 
 ## Unita' e formati
 

@@ -29,14 +29,16 @@ tutte mettono insieme le facce appaiate delle 20 terne dello scenario; le
 loro aree sono le medie sulle terne.
 
 Figure, ognuna in quattro PNG: _area (area non stimabile) e _angolo, _cv_l,
-_rapporto (pannelli q50, q90, q99, ognuno con la sua scala):
+_rapporto (pannelli q50, q90, q99, ognuno con la sua scala). Le scale partono
+da 0, tranne nei pannelli q99, in scala log: con 3 mappe il q99 dell'errore
+sul rapporto arriva a migliaia di % e schiaccerebbe gli altri valori.
   grafico1_mappe       aniso_zone_1, in funzione di k: un punto per
                        sottoinsieme, linea delle mediane per k
   grafico2_zone        tutte le mappe, in funzione di d
   grafico3_zone_mappe  in funzione di d, per ogni k la mediana dei
                        sottoinsiemi e la fascia dal minimo al massimo
   grafico4_roney       un punto per terna e scenario, Roney in orizzontale e
-                       per faccia in verticale
+                       per faccia in verticale, stessi limiti sui due assi
 Mediana, minimo e massimo fra sottoinsiemi contano ogni sottoinsieme uno.
 Nei grafici 2 e 3 la linea tratteggiata e' il diametro del disco di Roney,
 2 patch.radius_mm di experiments/roney.conf.
@@ -49,7 +51,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
+from matplotlib.ticker import FormatStrFormatter, LogFormatter
 
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
 OUT = ROOT / "output"
@@ -141,17 +143,17 @@ def tables():
 
 
 def figure(name, title, draw):
-    """Quattro PNG, output/figure/NAME_{area,angolo,cv_l,rapporto}.png. draw(ax, col, ylabel) disegna
-    la colonna col in un pannello."""
+    """Quattro PNG, output/figure/NAME_{area,angolo,cv_l,rapporto}.png. draw(ax, col, ylabel, log)
+    disegna la colonna col in un pannello, in scala log se log."""
     for q, ylabel in YLABEL.items():
         if q == "area":
             panels = {"area non stimabile": "area_non_stimabile_%"}
         else:
-            panels = {f"q{p}": f"{q}_q{p}" for p in QUANTILES}
+            panels = {f"q{p}" + (" (scala log)" if p == 99 else ""): f"{q}_q{p}" for p in QUANTILES}
         fig, axes = plt.subplots(1, len(panels), figsize=(max(4.6 * len(panels), 7.5), 4.6), squeeze=False,
                                  layout="constrained")
         for ax, (panel, col) in zip(axes[0], panels.items()):
-            draw(ax, col, ylabel)
+            draw(ax, col, ylabel, col.endswith("_q99"))
             ax.set_title(panel)
             ax.grid(alpha=0.3, which="both")
         handles, labels = axes[0, 0].get_legend_handles_labels()
@@ -160,6 +162,25 @@ def figure(name, title, draw):
         fig.suptitle(title)
         fig.savefig(FIG / f"{name}_{q}.png", dpi=140, bbox_inches="tight")
         plt.close(fig)
+
+
+def scala_log(ax, assi):
+    """Scala log sugli assi dati ("x", "y"), con etichette in numeri semplici (20, 30, 100) invece che
+    in potenze di 10."""
+    for a in assi:
+        getattr(ax, f"set_{a}scale")("log")
+        axis = getattr(ax, f"{a}axis")
+        axis.set_major_formatter(LogFormatter())
+        axis.set_minor_formatter(LogFormatter(labelOnlyBase=False))
+
+
+def asse_y(ax, ylabel, log):
+    """Asse verticale: in scala log, oppure da 0."""
+    ax.set_ylabel(ylabel)
+    if log:
+        scala_log(ax, "y")
+    else:
+        ax.set_ylim(bottom=0)
 
 
 def asse_d(ax):
@@ -181,25 +202,23 @@ def main():
     i, n = g1.groupby("k").cumcount(), g1.groupby("k")["k"].transform("size")
     g1["x"] = g1["k"] + 0.6 * (i - (n - 1) / 2) / n
 
-    def draw1(ax, col, ylabel):
+    def draw1(ax, col, ylabel, log):
         ax.scatter(g1["x"], g1[col], s=20, color=BLU, label="sottoinsieme", zorder=3)
         med = g1.groupby("k")[col].median()
         ax.plot(med.index, med.values, color=BLU_SCURO, lw=2, marker="_", ms=14, label="mediana per k", zorder=4)
         ax.set_xticks(med.index)
         ax.set_xlabel("mappe usate k")
-        ax.set_ylabel(ylabel)
-        ax.set_ylim(bottom=0)
+        asse_y(ax, ylabel, log)
 
     figure("grafico1_mappe", f"{SCENARIO_MAPPE}: un punto per sottoinsieme di mappe", draw1)
 
     # grafico 2: tutte le mappe, in funzione di d
     g2 = numeri[numeri["k"] == numeri["k"].max()].sort_values("d")
 
-    def draw2(ax, col, ylabel):
+    def draw2(ax, col, ylabel, log):
         ax.plot(g2["d"], g2[col], color=BLU, lw=2, marker="o", ms=6, label="per faccia, tutte le mappe")
         asse_d(ax)
-        ax.set_ylabel(ylabel)
-        ax.set_ylim(bottom=0)
+        asse_y(ax, ylabel, log)
 
     figure("grafico2_zone", f"aniso_zone_N, {g2['k'].iloc[0]} mappe: un punto per scenario", draw2)
 
@@ -207,14 +226,13 @@ def main():
     ks = sorted(numeri["k"].unique())
     colors = dict(zip(ks, plt.cm.viridis(np.linspace(0, 0.85, len(ks)))))
 
-    def draw3(ax, col, ylabel):
+    def draw3(ax, col, ylabel, log):
         for k in ks:
             s = numeri[numeri["k"] == k].groupby("d")[col]
             ax.fill_between(s.min().index, s.min(), s.max(), color=colors[k], alpha=0.15, lw=0)
             ax.plot(s.median().index, s.median(), color=colors[k], lw=2, marker="o", ms=4, label=f"k = {k}")
         asse_d(ax)
-        ax.set_ylabel(ylabel)
-        ax.set_ylim(bottom=0)
+        asse_y(ax, ylabel, log)
 
     figure("grafico3_zone_mappe", "aniso_zone_N: mediana dei sottoinsiemi di k mappe, fascia dal minimo al massimo",
            draw3)
@@ -226,15 +244,21 @@ def main():
     scenari = g4.drop_duplicates("scenario").sort_values("d")
     colors4 = dict(zip(scenari["scenario"], plt.cm.viridis(np.linspace(0, 0.85, len(scenari)))))
 
-    def draw4(ax, col, ylabel):
+    def draw4(ax, col, ylabel, log):
         for sc, n, d in scenari[["scenario", "N", "d"]].itertuples(index=False):
             s = g4[g4["scenario"] == sc]
             ax.scatter(s[f"{col}_roney"], s[f"{col}_faccia"], s=20, color=colors4[sc],
                        label=f"N = {n} (d = {d:.0f} mm)" if d >= 10 else f"N = {n} (d = {d:.2g} mm)", zorder=3)
-        top = 1.05 * max(g4[f"{col}_roney"].max(), g4[f"{col}_faccia"].max())
-        ax.plot([0, top], [0, top], color="#555", lw=1, label="y = x")
-        ax.set_xlim(0, top)
-        ax.set_ylim(0, top)
+        v = pd.concat([g4[f"{col}_roney"], g4[f"{col}_faccia"]])
+        if log:                                           # dal minimo al massimo, con un margine
+            scala_log(ax, "xy")
+            ax.tick_params(axis="x", which="both", labelrotation=45)   # 300 e 400 si toccano in orizzontale
+            lim = (v.min() / 1.1, v.max() * 1.1)
+        else:
+            lim = (0, 1.05 * v.max())
+        ax.plot(lim, lim, color="#555", lw=1, label="y = x")
+        ax.set_xlim(*lim)
+        ax.set_ylim(*lim)
         ax.set_aspect("equal")
         ax.set_xlabel(f"{METODI['roney']}: {ylabel}")
         ax.set_ylabel(f"{METODI['faccia']}: {ylabel}")

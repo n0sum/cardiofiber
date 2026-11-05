@@ -50,9 +50,13 @@ di r = CV_L/CV_T = 2.0 x (0.8, 0.9, 1.0, 1.1, 1.2), CV_L esterno e r
 interno. La mesh la scrive `simulator/stage1/opencarp/random_tags.py
 aniso_zone_N experiments/region_cv/aniso_random.csv 0 N`: N zone attorno a
 N facce scelte a caso (faccia al centro piu' vicino), un tag a caso per
-zona con la stessa probabilita'. Con N = 1 le CV sono uniformi, con
-N = 43270 ogni faccia e' una zona. Semi e N stanno solo in `run_all.sh`:
-N = 1, 50, 500, 5000, 25000, 43270, seme 0.
+zona con la stessa probabilita'. Semi e N stanno solo in `run_all.sh`:
+N = 1, 8, 70, 600, seme 0, cioe' diametro medio di zona d = sqrt(4 A / (pi N))
+~ 123 / sqrt(N) = 123, 44, 15, 5.0 mm, passi uguali in scala log. Con N = 1
+le CV sono uniformi; con N = 600 le zone sono grandi come il disco del metodo
+di Roney (2 `patch.radius_mm` di `roney.conf`, 5 mm), che presuppone CV
+uniformi al suo interno: zone piu' piccole misurerebbero solo che il
+presupposto e' violato.
 
 Per ogni scenario, dalla radice:
 
@@ -184,7 +188,11 @@ d = 123 mm).
   appaiate delle 20 terne dello scenario.
 
 Quattro grafici, ognuno in quattro PNG: `_area` (area non stimabile) e
-`_angolo`, `_cv_l`, `_rapporto`, con tre pannelli q50, q90 e q99.
+`_angolo`, `_cv_l`, `_rapporto`, con tre pannelli q50, q90 e q99. Le scale
+partono da 0, tranne nei pannelli q99, in scala log (nel grafico 4 su
+entrambi gli assi, con gli stessi limiti): con 3 mappe il q99 dell'errore
+sul rapporto arriva a migliaia di % (ellissi quasi piatte) e schiaccerebbe
+gli altri valori.
 
 | file                       | contenuto                                              |
 |----------------------------|--------------------------------------------------------|
@@ -226,8 +234,8 @@ aggiunge una riga `comment`.
 `output/mesh/METODO_SCENARIO_SUB_{angolo,cv_l,rapporto}.ply`, 12 in tutto:
 
 1. per faccia, sei mappe, `aniso_zone_1`;
-2. per faccia, sei mappe, `aniso_zone_5000`;
-3. e 4. per faccia e Roney sulla terna di `aniso_zone_5000` con l'area
+2. per faccia, sei mappe, `aniso_zone_600`;
+3. e 4. per faccia e Roney sulla terna di `aniso_zone_600` con l'area
    appaiata piu' grande (facce stimabili da entrambi i metodi, pesate per
    area, dai due `errors.csv` della terna).
 

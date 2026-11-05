@@ -20,7 +20,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
 SCENARIO_TUTTE = "aniso_zone_1"
-SCENARIO_TERNA = "aniso_zone_5000"
+SCENARIO_TERNA = "aniso_zone_600"
 
 
 def line(method, scenario, sub):
