@@ -9,16 +9,16 @@ soluzione del fit a residui radiali di Roney, quindi l'algoritmo genetico non
 serve.
 
 Uso, dalla radice del repository:
-    python estimator/roney.py experiments/roney.conf aniso_const aniso_zone_40 ...
+    python estimator/roney.py experiments/roney.conf aniso_zone_1 aniso_zone_50 ...
 Legge data/reference/LA_LAT_SCENARIO.ply e, solo dopo la stima,
-data/reference/LA_GT_SCENARIO.ply. Scrive
+data/reference/LA_GT_SCENARIO.ply. Le terne sono quelle delle mappe lat_k
+presenti nel LAT PLY, cioe' che convergono; k e' l'indice del sito. Scrive
 output/roney/SCENARIO/roney/sub_i-j-k/errors.csv, con le colonne di
 exportErrorsAsCsv in Mesh.cpp.
 
 Unita': gradienti in ms/mm, velocita' in mm/ms.
 """
 
-import csv
 import itertools
 import sys
 from pathlib import Path
@@ -29,7 +29,6 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import dijkstra
 
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
-SITES = ROOT / "simulator" / "stage1" / "pacing_sites.csv"
 KEYS = ["patch.radius_mm", "patch.n_points", "patch.seed", "fit.max_residual", "mask.min_singular_value"]
 COLUMNS = ["experiment_id", "face_id", "area", "region_tag", "estimable", "k_used", "cond",
            "CV_L_est", "CV_T_est", "CV_L_true", "CV_T_true", "err_angle"]
@@ -138,7 +137,6 @@ def estimate(X, ok, A, nrm, min_sv):
 def main():
     conf = read_conf(sys.argv[1])
     radius, n_points = conf["patch.radius_mm"], int(conf["patch.n_points"])
-    n_maps = len(list(csv.DictReader(open(SITES))))
 
     geo = None
     for scenario in sys.argv[2:]:
@@ -153,8 +151,9 @@ def main():
             pinv = np.linalg.pinv(D)                      # (nf, 3, n_points)
             n_real = real.sum(axis=1)
 
+        maps = [int(p.removeprefix("lat_")) for p in lat["vertex"].dtype.names if p.startswith("lat_")]
         g, valid = [], []
-        for k in range(n_maps):
+        for k in maps:
             t = np.where(real, lat["vertex"][f"lat_{k}"].astype(np.float64)[np.maximum(pts, 0)], 0.0)
             coef = np.einsum("fij,fj->fi", pinv, t)
             res = np.einsum("fjk,fk->fj", D, coef) - t   # nulli sulle righe riempite
@@ -163,11 +162,12 @@ def main():
             gn = np.linalg.norm(gk, axis=1)
             valid.append((gn > 0) & (rms <= conf["fit.max_residual"] * gn * radius))
             g.append(gk)
-        g, valid = np.stack(g, axis=1), np.stack(valid, axis=1)        # (nf, n_maps, 2), (nf, n_maps)
+        g, valid = np.stack(g, axis=1), np.stack(valid, axis=1)        # (nf, mappe, 2), (nf, mappe)
 
-        results = {}
-        for sub in itertools.combinations(range(n_maps), 3):
-            s = list(sub)
+        results = {}                                      # terna di siti -> stima
+        for pos in itertools.combinations(range(len(maps)), 3):         # posizioni in maps
+            s = list(pos)
+            sub = tuple(maps[i] for i in pos)
             k_used, ok = valid[:, s].sum(axis=1), valid[:, s].all(axis=1)
             with np.errstate(divide="ignore", invalid="ignore"):
                 x = g[:, s] / (g[:, s] ** 2).sum(axis=-1, keepdims=True)

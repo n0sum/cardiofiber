@@ -205,25 +205,29 @@ void Mesh::importMultiLatPly(std::string filename) {
     vPos.resize(x.size());
     for (size_t i = 0; i < x.size(); ++i) vPos[i] = vec3(x[i], y[i], z[i]);
 
-    // vQualities[mapIndex][vertexIndex]
-    for (int k = 0; v.hasProperty("lat_" + std::to_string(k)); ++k)
-        vQualities.push_back(v.getProperty<float>("lat_" + std::to_string(k)));
+    // vQualities[mapIndex][vertexIndex]; lat_k e' la mappa del sito k, mapIds[mapIndex] = k.
+    // Le mappe che non convergono mancano, quindi k puo' saltare dei valori.
+    for (const std::string& name : v.getPropertyNames())
+        if (name.starts_with("lat_")) {
+            mapIds.push_back(std::stoi(name.substr(4)));
+            vQualities.push_back(v.getProperty<float>(name));
+        }
 
     const auto& prov_faces = plyIn.getElement("face").getListProperty<int>("vertex_indices");
     faces.reserve(prov_faces.size());
     for (const auto& f : prov_faces) faces.emplace_back(f[0], f[1], f[2]);
 }
 
-void Mesh::selectMaps(const std::vector<int>& indices) {
+void Mesh::selectMaps(const std::vector<int>& ids) {
     std::vector<std::vector<float>> selected;
-    selected.reserve(indices.size());
-    for (int k : indices) {
-        if (k < 0 || k >= static_cast<int>(vQualities.size()))
-            throw std::runtime_error("selectMaps: mappa " + std::to_string(k) + " fuori range (" +
-                                     std::to_string(vQualities.size()) + " mappe)");
-        selected.push_back(vQualities[k]);
+    for (int k : ids) {
+        const auto it = std::find(mapIds.begin(), mapIds.end(), k);
+        if (it == mapIds.end())
+            throw std::runtime_error("selectMaps: la mappa " + std::to_string(k) + " non c'e' nel LAT PLY");
+        selected.push_back(vQualities[it - mapIds.begin()]);
     }
     vQualities = std::move(selected);
+    mapIds = ids;
 }
 
 void Mesh::importPlyGroundTruth(const std::string& filename) {
@@ -298,20 +302,22 @@ void Mesh::exportErrorsAsPly(const std::string& errorsCsv, const std::string& ba
     exportQualityAsPly(base + "_rapporto.ply", ratio);
 }
 
-// PLY binario little endian: vertici x y z, facce con la quality data, nient'altro.
+// PLY binario: vertici x y z, facce con la quality data.
 void Mesh::exportQualityAsPly(const std::string& filename, const std::vector<float>& quality) const {
-    std::ofstream out(filename, std::ios::binary);
-    out << "ply\nformat binary_little_endian 1.0\n"
-        << "element vertex " << vPos.size() << "\nproperty float x\nproperty float y\nproperty float z\n"
-        << "element face " << faces.size() << "\nproperty list uchar int vertex_indices\nproperty float quality\n"
-        << "end_header\n";
-    out.write(reinterpret_cast<const char*>(vPos.data()), vPos.size() * sizeof(vec3));     // 3 float per vertice
-    const unsigned char three = 3;
-    for (int i = 0; i < faces.size(); ++i) {
-        out.write(reinterpret_cast<const char*>(&three), 1);
-        out.write(reinterpret_cast<const char*>(&faces[i]), sizeof(Face));                // 3 int
-        out.write(reinterpret_cast<const char*>(&quality[i]), sizeof(float));
-    }
+    std::vector<float> x(vPos.size()), y(vPos.size()), z(vPos.size());
+    for (int i = 0; i < vPos.size(); ++i) { x[i] = vPos[i].x; y[i] = vPos[i].y; z[i] = vPos[i].z; }
+    std::vector<std::vector<int>> vertex_indices(faces.size());
+    for (int i = 0; i < faces.size(); ++i) vertex_indices[i] = {faces[i].a, faces[i].b, faces[i].c};
+
+    happly::PLYData ply;
+    ply.addElement("vertex", vPos.size());
+    ply.getElement("vertex").addProperty<float>("x", x);
+    ply.getElement("vertex").addProperty<float>("y", y);
+    ply.getElement("vertex").addProperty<float>("z", z);
+    ply.addElement("face", faces.size());
+    ply.getElement("face").addListProperty<int>("vertex_indices", vertex_indices);
+    ply.getElement("face").addProperty<float>("quality", quality);
+    ply.write(filename, happly::DataFormat::Binary);
 }
 
 void Mesh::exportAsPly(const std::string &filename) const {

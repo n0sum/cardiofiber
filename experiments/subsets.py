@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """
-Genera un .conf per ogni sottoinsieme di k >= 3 mappe LAT, oppure solo per i
-sottoinsiemi di K mappe.
-
-Ogni .conf e' il modello TEMPLATE con cambiati experiment_id, maps,
-output_csv e output_ply (none). Il numero di mappe e' il numero di righe di
-pacing_sites.csv (la riga k e' la mappa k).
+Genera un .conf per ogni sottoinsieme di k >= 3 mappe LAT di uno scenario,
+oppure solo per i sottoinsiemi di K mappe. Le mappe sono quelle che
+convergono, da data/reference/sims/SCENARIO/mappe.csv, con il loro indice di
+sito (la riga di pacing_sites.csv).
 
 experiment_id = sub_ + indici uniti da trattino (es. sub_0-2-4): finisce
 non quotato nel CSV, quindi niente virgole.
 
 Uso, dalla radice del repository:
-    python experiments/subsets.py TEMPLATE OUT_DIR [K]
-    python experiments/subsets.py experiments/aniso_const.conf output/subsets
+    python experiments/subsets.py SCENARIO OUT_DIR [K]
+    python experiments/subsets.py aniso_zone_1 output/subsets
 I .conf vanno in OUT_DIR/confs/, le uscite in OUT_DIR/<ID>/errors.csv.
 """
 
@@ -22,34 +20,35 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
-SITES = ROOT / "simulator" / "stage1" / "pacing_sites.csv"
+MODEL = ROOT / "experiments" / "modello.conf"
 MIN_MAPS = 3                                              # kMinGradients in Mesh.cpp
 
 
-def write_conf(template, path, new):
-    """Scrive in path il .conf template senza commenti, con i valori di new al posto dei suoi.
+def write_conf(path, scenario, experiment_id, maps, output_csv, output_ply="none"):
+    """Scrive in path un .conf: le soglie di modello.conf piu' scenario, mappe e uscite.
     La usano anche zone.py e mappe.py."""
-    out = []
-    for line in Path(template).read_text().splitlines():
-        if line.strip() and not line.startswith("#"):
-            key, value = (s.strip() for s in line.split("=", 1))
-            out.append(f"{key} = {new.get(key, value)}")
+    keys = {"experiment_id": experiment_id,
+            "lat_ply": f"data/reference/LA_LAT_{scenario}.ply",
+            "ground_truth_ply": f"data/reference/LA_GT_{scenario}.ply",
+            "maps": maps,
+            "output_csv": output_csv,
+            "output_ply": output_ply}
+    lines = [l for l in MODEL.read_text().splitlines() if l.strip() and not l.startswith("#")]
+    lines += [f"{k} = {v}" for k, v in keys.items()]
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(out) + "\n")
+    path.write_text("\n".join(lines) + "\n")
 
 
 def main():
-    template, out_dir = sys.argv[1], sys.argv[2]
-    n_maps = len(list(csv.DictReader(open(SITES))))
-    ks = [int(sys.argv[3])] if len(sys.argv) > 3 else range(MIN_MAPS, n_maps + 1)
+    scenario, out_dir = sys.argv[1], sys.argv[2]
+    mappe = ROOT / "data" / "reference" / "sims" / scenario / "mappe.csv"
+    maps = [int(r["mappa"]) for r in csv.DictReader(open(mappe)) if r["converge"] == "1"]
+    ks = [int(sys.argv[3])] if len(sys.argv) > 3 else range(MIN_MAPS, len(maps) + 1)
     for k in ks:
-        for subset in itertools.combinations(range(n_maps), k):
+        for subset in itertools.combinations(maps, k):
             exp_id = "sub_" + "-".join(map(str, subset))
-            write_conf(template, Path(out_dir) / "confs" / f"{exp_id}.conf",
-                       {"experiment_id": exp_id,
-                        "maps": ",".join(map(str, subset)),
-                        "output_csv": f"{out_dir}/{exp_id}/errors.csv",
-                        "output_ply": "none"})
+            write_conf(Path(out_dir) / "confs" / f"{exp_id}.conf", scenario, exp_id,
+                       ",".join(map(str, subset)), f"{out_dir}/{exp_id}/errors.csv")
 
 
 if __name__ == "__main__":

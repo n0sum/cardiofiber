@@ -8,8 +8,8 @@ Per ogni faccia stimabile:
   rapporto  (r_est - r_true) / r_true, con segno, r = CV_L / CV_T
 
 Uso, dalla radice del repository:
-    python analysis/analisi.py aniso_const
-        -> output/aniso_const/figure/{errori.png, numeri.csv}
+    python analysis/analisi.py zone/aniso_zone_1
+        -> output/zone/aniso_zone_1/figure/{errori.png, numeri.csv}
     python analysis/analisi.py --sottoinsiemi
         -> output/subsets/figure/{area_non_stimabile,angolo,cv_l,rapporto}.png, numeri.csv
            da output/subsets/sub_*/errors.csv (generati da experiments/subsets.py)
@@ -17,14 +17,17 @@ Uso, dalla radice del repository:
         -> output/zone/figure/{zone.png, numeri.csv}
            da output/zone/aniso_zone_*/errors.csv (generati da experiments/zone.py)
     python analysis/analisi.py --roney
-        -> output/roney/figure/{const.png, zone.png, numeri.csv, terne.csv}
+        -> output/roney/figure/{zona_1.png, zone.png, numeri.csv, terne.csv}
            da output/roney/SCENARIO/{roney,faccia}/sub_*/errors.csv (estimator/roney.py)
 
+Le mappe sono solo quelle che convergono in ogni scenario: in numeri.csv di
+zone e roney la colonna mappe ne da' il numero.
+
 Sottoinsiemi: confronto APPAIATO, gli errori di ogni sottoinsieme si calcolano
-sulle facce stimabili sia in esso sia in sub_0-1-2-3-4-5.
+sulle facce stimabili sia in esso sia nel sottoinsieme con tutte le mappe.
 
 Zone: per ogni aniso_zone_N il diametro medio di zona d = sqrt(4 A / (pi N)),
-A = area totale in mm^2; riferimento orizzontale: aniso_const.
+A = area totale in mm^2.
 
 Roney: per scenario e terna, confronto APPAIATO fra i due bracci (facce
 stimabili in entrambi); l'area non stimabile e' di ogni braccio da solo.
@@ -41,7 +44,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[1]                # radice del repository
-K = len(pd.read_csv(ROOT / "simulator" / "stage1" / "pacing_sites.csv"))   # mappe totali
 SUBSETS = ROOT / "output" / "subsets"
 ZONE = ROOT / "output" / "zone"
 RONEY = ROOT / "output" / "roney"
@@ -131,7 +133,7 @@ def subsets():
     runs = {}
     for d in SUBSETS.glob("sub_*"):
         runs[tuple(int(i) for i in d.name[4:].split("-"))] = load(d / "errors.csv")
-    ref = runs[tuple(range(K))]
+    ref = runs[max(runs, key=len)]                       # tutte le mappe
 
     rows = []
     for idx in sorted(runs, key=lambda i: (len(i), i)):
@@ -176,15 +178,12 @@ def zone():
     for d in ZONE.glob("aniso_zone_*"):
         df = load(d / "errors.csv")
         n = int(d.name.removeprefix("aniso_zone_"))
-        rows.append({"N": n, "d": np.sqrt(4 * df["area"].sum() / (np.pi * n)),
+        rows.append({"N": n, "d": np.sqrt(4 * df["area"].sum() / (np.pi * n)), "mappe": df["k_used"].max(),
                      "area_non_stimabile_%": nonstim(df), **quantiles(df)})
     z = pd.DataFrame(rows).sort_values("d")
     out_dir = ZONE / "figure"
     out_dir.mkdir(parents=True, exist_ok=True)
     z.to_csv(out_dir / "numeri.csv", index=False, float_format="%.6g")
-
-    c = load(ROOT / "output" / "aniso_const" / "errors.csv")
-    ref = {"area_non_stimabile_%": nonstim(c), **quantiles(c)}
 
     fig, axes = plt.subplots(1, 4, figsize=(18, 4.5))
     panels = [("area non stimabile [%]", [("area_non_stimabile_%", "o", "#2a78d6", None)])]
@@ -194,7 +193,6 @@ def zone():
     for ax, (ylabel, cols) in zip(axes, panels):
         for col, marker, color, label in cols:
             ax.plot(z["d"], z[col], marker=marker, color=color, lw=1, label=label)
-            ax.axhline(ref[col], color=color, lw=1, ls="--")
         ax.set_xscale("log")
         ax.set_xlabel("diametro medio di zona d [mm]")
         ax.set_ylabel(ylabel)
@@ -202,7 +200,7 @@ def zone():
         ax.grid(alpha=0.3, which="both")
         if len(cols) > 1:
             ax.legend(frameon=False)
-    fig.suptitle("aniso_zone_N: tratteggio = aniso_const")
+    fig.suptitle("aniso_zone_N, tutte le mappe che convergono")
     plt.tight_layout()
     plt.savefig(out_dir / "zone.png", dpi=140)
     plt.close()
@@ -213,10 +211,9 @@ def roney():
     for sc_dir in sorted(RONEY.glob("aniso_*")):
         sc = sc_dir.name
         runs = {a: {d.name: load(d / "errors.csv") for d in (sc_dir / a).glob("sub_*")} for a in ARMS}
-        d = None
-        if sc != "aniso_const":
-            area = next(iter(runs["faccia"].values()))["area"].sum()
-            d = np.sqrt(4 * area / (np.pi * int(sc.removeprefix("aniso_zone_"))))
+        area = next(iter(runs["faccia"].values()))["area"].sum()
+        d = np.sqrt(4 * area / (np.pi * int(sc.removeprefix("aniso_zone_"))))
+        mappe = len({k for sub in runs["faccia"] for k in sub.removeprefix("sub_").split("-")})
         for arm in ARMS:
             paired, nonstim_area, both_area, tot = [], 0.0, 0.0, 0.0
             for sub, df in runs[arm].items():
@@ -227,7 +224,8 @@ def roney():
                 tot += df["area"].sum()
                 per_sub.append({"scenario": sc, "braccio": arm, "sub": sub,
                                 "area_non_stimabile_%": nonstim(df), **quantiles(df[both])})
-            rows.append({"scenario": sc, "braccio": arm, "d": d, "area_non_stimabile_%": nonstim_area / tot,
+            rows.append({"scenario": sc, "braccio": arm, "d": d, "mappe": mappe,
+                         "area_non_stimabile_%": nonstim_area / tot,
                          "area_appaiata_%": 100 * both_area / tot, **quantiles(pd.concat(paired))})
     r, s = pd.DataFrame(rows), pd.DataFrame(per_sub)
     out_dir = RONEY / "figure"
@@ -238,10 +236,10 @@ def roney():
     panels = [("area_non_stimabile_%", "area non stimabile [%]")] + \
              [(e, label + (", valore assoluto" if e != "angolo" else "")) for e, label in ERRORS.items()]
 
-    # aniso_const: un punto per terna, sfalsato attorno al braccio
-    c = s[s["scenario"] == "aniso_const"].copy()
-    c["x"] = c["braccio"].map({a: i for i, a in enumerate(ARMS)}) \
-        + 0.6 * (c.groupby("braccio").cumcount() / 19 - 0.5)
+    # aniso_zone_1: un punto per terna, sfalsato attorno al braccio
+    c = s[s["scenario"] == "aniso_zone_1"].copy()
+    i, n = c.groupby("braccio").cumcount(), c.groupby("braccio")["braccio"].transform("size")
+    c["x"] = c["braccio"].map({a: j for j, a in enumerate(ARMS)}) + 0.6 * (i - (n - 1) / 2) / n
     fig, axes = plt.subplots(1, 4, figsize=(18, 4.5))
     for ax, (col, ylabel) in zip(axes, panels):
         if col == "area_non_stimabile_%":
@@ -254,12 +252,12 @@ def roney():
         ax.set_ylabel(ylabel)
         ax.set_ylim(bottom=0)
         ax.grid(axis="y", alpha=0.3)
-    fig.suptitle("aniso_const, 3 mappe: un punto per terna, facce stimabili nei due bracci")
+    fig.suptitle("aniso_zone_1, 3 mappe: un punto per terna, facce stimabili nei due bracci")
     plt.tight_layout()
-    plt.savefig(out_dir / "const.png", dpi=140)
+    plt.savefig(out_dir / "zona_1.png", dpi=140)
     plt.close()
 
-    z = r[r["scenario"] != "aniso_const"].sort_values("d")
+    z = r.sort_values("d")
     fig, axes = plt.subplots(1, 4, figsize=(18, 4.5))
     for ax, (col, ylabel) in zip(axes, panels):
         for arm, color in ARMS.items():

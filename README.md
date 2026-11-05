@@ -22,7 +22,7 @@ estimator/
   include/happly.h             lettore PLY vendorizzato (THIRD_PARTY.md)
   roney.py                     metodo 2 di Roney et al. 2019
 analysis/analisi.py            errori pesati per area, figure, numeri.csv
-experiments/                   .conf degli esperimenti, CV per scenario (region_cv/),
+experiments/                   modello.conf e roney.conf, CV per zona (region_cv/),
                                subsets.py, zone.py, mappe.py; formati in experiments/README.md
 ```
 
@@ -89,51 +89,59 @@ Uscite, per esperimento, in `output/`:
 
 | cartella                                   | contenuto                                          |
 |--------------------------------------------|----------------------------------------------------|
-| `aniso_const/`                             | `errors.csv` per faccia, `figure/{errori.png,numeri.csv}` |
-| `subsets/`                                 | sottoinsiemi di mappe, `figure/numeri.csv` e grafici |
-| `zone/`                                    | scenari `aniso_zone_N`, `figure/{zone.png,numeri.csv}` |
-| `roney/`                                   | Roney contro stimatore per faccia, `figure/{const.png,zone.png,numeri.csv,terne.csv}` |
-| `mappe/`                                   | PLY degli errori per faccia su `aniso_const` (sei mappe e terne scelte), uno per errore, per MeshLab |
+| `zone/`                                    | scenari `aniso_zone_N`: `errors.csv` per faccia, `figure/{zone.png,numeri.csv}`; `aniso_zone_1/figure/{errori.png,numeri.csv}` |
+| `subsets/`                                 | sottoinsiemi di mappe su `aniso_zone_1`, `figure/numeri.csv` e grafici |
+| `roney/`                                   | Roney contro stimatore per faccia, `figure/{zona_1.png,zone.png,numeri.csv,terne.csv}` |
+| `mappe/`                                   | PLY degli errori per faccia su `aniso_zone_1` (tutte le mappe e terne scelte), uno per errore, per MeshLab |
 
-Scenari: in `aniso_const` CV uniformi, CV_L 1.05 e CV_T 0.525 mm/ms; in
-`aniso_zone_N` la mesh e' divisa in N zone casuali e ogni zona ha una delle
-25 combinazioni di CV_L e r = CV_L/CV_T di `region_cv/aniso_random.csv`
-(N = 43270: una zona per faccia). Dettagli in `experiments/README.md`.
+Scenari: `aniso_zone_N`, la mesh divisa in N zone casuali (seme 0), ogni zona
+con una delle 25 combinazioni di CV_L e r = CV_L/CV_T di
+`region_cv/aniso_random.csv`, N = 1, 50, 500, 5000, 25000, 43270. Con N = 1
+le CV sono uniformi (e' uscito il tag 16: CV_L 1.155, CV_T 0.722 mm/ms,
+r = 1.6); con N = 43270 c'e' una zona per faccia. Dettagli in
+`experiments/README.md`.
+
+Il FIM di openCARP si ferma dopo 1000 iterazioni; le run che convergono ne
+fanno 96-166. Una mappa che non converge non entra nel LAT PLY dello
+scenario, e le altre tengono l'indice del loro sito. Mappe che non
+convergono: la 5 in `aniso_zone_1` e `aniso_zone_5000`, la 0 in
+`aniso_zone_50`, la 3 in `aniso_zone_43270`; negli altri scenari ci sono tutte e sei.
 
 ## Risultati attesi
 
 Errori pesati per area sulle facce stimabili: angolo di fibra in gradi,
 errori relativi in valore assoluto, in %, su CV_L e sul rapporto r.
 
-**aniso_const**, sei mappe (`output/aniso_const/figure/numeri.csv`):
+**aniso_zone_1**, tutte le mappe, cioe' 0-4 (`output/zone/aniso_zone_1/figure/numeri.csv`):
 
 | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | CV_L q90 | r q50 | r q90 |
 |--------|--------|-------|--------|--------|--------|---------|
-| 0.28 % | 0.788° | 3.91° | 0.89 % | 4.69 % | 1.90 % | 10.4 %  |
+| 0.33 % | 0.975° | 4.95° | 0.66 % | 3.69 % | 1.41 % | 7.81 %  |
 
-**Sottoinsiemi di mappe** (`output/subsets/figure/numeri.csv`, confronto
-appaiato con le sei mappe): con 3 mappe, sulle 20 terne, area non stimabile
-5.3-15.1 % (mediana 7.2 %), angolo q50 0.91-1.48° (mediana 1.19°), angolo
-q90 7.9-12.3° (mediana 9.0°); con 6 mappe i valori di `aniso_const`.
+**Sottoinsiemi di mappe** su `aniso_zone_1` (`output/subsets/figure/numeri.csv`,
+confronto appaiato con tutte e cinque le mappe): con 3 mappe, sulle 10
+terne, area non stimabile 4.0-9.6 % (mediana 5.6 %), angolo q50 1.17-1.76°
+(mediana 1.37°), angolo q90 9.2-14.9° (mediana 10.5°); con 5 mappe i valori
+di `aniso_zone_1`.
 
 **Zone** (`output/zone/figure/numeri.csv`), d = diametro medio di zona:
 
-| N     | d [mm] | angolo q50 | angolo q90 |
-|-------|--------|------------|------------|
-| 43270 | 0.59   | 5.25°      | 18.4°      |
-| 10000 | 1.23   | 3.88°      | 15.7°      |
-| 2500  | 2.47   | 2.81°      | 13.3°      |
-| 600   | 5.03   | 1.78°      | 9.50°      |
-| 150   | 10.1   | 1.27°      | 7.01°      |
-| 40    | 19.5   | 0.99°      | 5.24°      |
+| N     | d [mm] | mappe | area non stimabile | angolo q50 | angolo q90 |
+|-------|--------|-------|--------------------|------------|------------|
+| 43270 | 0.59   | 5     | 3.85 %             | 5.90°      | 22.1°      |
+| 25000 | 0.78   | 6     | 1.58 %             | 4.71°      | 17.4°      |
+| 5000  | 1.74   | 5     | 2.22 %             | 3.54°      | 16.4°      |
+| 500   | 5.51   | 6     | 0.93 %             | 1.71°      | 8.89°      |
+| 50    | 17.4   | 5     | 1.63 %             | 1.14°      | 7.23°      |
+| 1     | 123    | 5     | 0.33 %             | 0.975°     | 4.95°      |
 
-**Roney su aniso_const**, terne di mappe (`output/roney/figure/numeri.csv`;
-errori sulle facce stimabili in entrambi i metodi, 55.4 % dell'area):
+**Roney su aniso_zone_1**, terne di mappe (`output/roney/figure/numeri.csv`;
+errori sulle facce stimabili in entrambi i metodi, 76.2 % dell'area):
 
 | metodo  | area non stimabile | angolo q50 | angolo q90 | CV_L q50 | r q50  |
 |---------|--------------------|------------|------------|----------|--------|
-| Roney   | 42.5 %             | 9.68°      | 28.8°      | 13.0 %   | 15.2 % |
-| faccia  | 8.2 %              | 1.16°      | 8.55°      | 0.92 %   | 3.01 % |
+| Roney   | 21.9 %             | 6.60°      | 21.5°      | 13.5 %   | 11.1 % |
+| faccia  | 5.8 %              | 1.30°      | 9.12°      | 0.82 %   | 2.06 % |
 
 ## Unita' e formati
 
@@ -146,12 +154,13 @@ errori sulle facce stimabili in entrambi i metodi, 55.4 % dell'area):
   AugmentA inverte il verso dei triangoli rispetto all'SSM; la connettivita'
   di riferimento e' sempre `LA_endo_with_fiber.elem`.
 - `.lon`: prima riga `2`, poi per triangolo fibra e sheet, tre componenti ciascuna.
-- `experiments/region_cv/*.csv`: `region_tag,CV_L,CV_T` in mm/ms;
+- `experiments/region_cv/aniso_random.csv`: `region_tag,CV_L,CV_T` in mm/ms;
   `run_sims.py` converte in mm/s per openCARP.
 - `data/reference/LA_LAT_NOME.ply`: PLY binario, per vertice `x y z` (mm) e
-  `lat_0 ... lat_5` (ms). `LA_GT_NOME.ply`: per faccia `fx fy fz` (fibra),
+  `lat_k` (ms), una per sito k la cui mappa converge
+  (`data/reference/sims/NOME/mappe.csv`). `LA_GT_NOME.ply`: per faccia `fx fy fz` (fibra),
   `CV_L CV_T` (mm/ms), `elem_tag`.
-- `output/*/errors.csv`: una riga per faccia; colonne in `experiments/README.md`.
+- `output/**/errors.csv`: una riga per faccia; colonne in `experiments/README.md`.
 
 ## Rigenerare la LA e le fibre dall'SSM (facoltativo)
 

@@ -43,6 +43,7 @@ class Mesh{
     bool imported = false;
     std::vector<Face> faces;
     std::vector<std::vector<float>> vQualities;
+    std::vector<int> mapIds;                    // sito di ogni mappa: vQualities[j] e' lat_<mapIds[j]>
     std::vector<vec3> vPos;
 
     std::vector<std::vector<vec3>> fTangents;
@@ -56,8 +57,9 @@ public:
     void exportAsPly(const std::string &filename) const;
     void exportAllTangentsAsObj(std::string filename) const;
     void importMultiLatPly(const std::string filename);
-    // Tiene solo le mappe LAT indicate, nell'ordine dato. Da chiamare prima del calcolo dei gradienti.
-    void selectMaps(const std::vector<int>& indices);
+    // Tiene solo le mappe LAT dei siti indicati (lat_k), nell'ordine dato. Da chiamare prima del calcolo
+    // dei gradienti.
+    void selectMaps(const std::vector<int>& ids);
     // Ground truth per faccia (elemento face: fx, fy, fz, CV_L, CV_T, elem_tag), copiata cosi' com'e'.
     void importPlyGroundTruth(const std::string& filename);
 
