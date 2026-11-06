@@ -29,7 +29,7 @@ metodi con quella terna) ed errori sulle facce appaiate. Le righe con sub =
 tutte mettono insieme le facce appaiate delle 20 terne dello scenario; le
 loro aree sono le medie sulle terne.
 
-Scatole dei grafici 0a e 0b: dal q25 al q75, linea al q50, baffi dal q5 al q95,
+Scatole dei grafici 0a e 0b: dal q25 al q75, linea al q50, baffi dal q10 al q90,
 pesati per area.
 grafico0_cond_errori.png, aniso_zone_1, facce con cond calcolato dei 42
 sottoinsiemi messe insieme, in 10 fasce di cond di area uguale, ognuna al suo
@@ -196,7 +196,7 @@ def figure(name, title, draw, insieme=False, dopo=None):
             draw(ax, cols, ylabel)
             ax.set_title(panel)
         handles, labels = axes[0, 0].get_legend_handles_labels()
-        fig.legend(handles, labels, loc="outside lower center", ncol=min(len(labels), 5 if len(panels) > 1 else 4),
+        fig.legend(handles, labels, loc="outside lower center", ncol=min(len(labels), 6 if len(panels) > 1 else 4),
                    frameon=False)
         fig.suptitle(title)
         if dopo:
@@ -269,12 +269,12 @@ def asse_d(ax):
 
 def scatole(ax, x, x0, x1, gruppi, col):
     """Una scatola per gruppo, in x da x0 a x1: dal q25 al q75 del valore assoluto di col, linea al q50 e baffi
-    dal q5 al q95, pesati per area."""
-    q5, q25, q50, q75, q95 = (gruppi.apply(lambda s: wquantile(s[col].abs(), s["area"], q)).to_numpy()
-                              for q in (0.05, 0.25, 0.50, 0.75, 0.95))
+    dal q10 al q90, pesati per area."""
+    q10, q25, q50, q75, q90 = (gruppi.apply(lambda s: wquantile(s[col].abs(), s["area"], q)).to_numpy()
+                              for q in (0.10, 0.25, 0.50, 0.75, 0.90))
     blu = QSTILE["q50"][0]
-    ax.vlines(x, q5, q25, color=blu, lw=1)
-    ax.vlines(x, q75, q95, color=blu, lw=1)
+    ax.vlines(x, q10, q25, color=blu, lw=1)
+    ax.vlines(x, q75, q90, color=blu, lw=1)
     ax.bar(x0, q75 - q25, width=x1 - x0, bottom=q25, align="edge", facecolor=to_rgba(blu, 0.25), edgecolor=blu,
            lw=1, zorder=3)
     ax.hlines(q50, x0, x1, color=blu, lw=2, zorder=4)
@@ -282,7 +282,7 @@ def scatole(ax, x, x0, x1, gruppi, col):
 
 def nota_scatole(fig):
     """La legenda delle scatole, sotto la figura."""
-    fig.supxlabel("box: q25–q75 · line: q50 · whiskers: q5–q95 (area-weighted)", fontsize="medium")
+    fig.supxlabel("box: q25–q75 · line: q50 · whiskers: q10–q90 (area-weighted)", fontsize="medium")
 
 
 def main():

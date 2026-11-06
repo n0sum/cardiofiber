@@ -92,7 +92,7 @@ terne. Uscite in `output/`:
 | cartella                                   | contenuto                                          |
 |--------------------------------------------|----------------------------------------------------|
 | `aniso_zone_N/`                            | `confs/sub_*.conf`; `faccia/sub_*/errors.csv` (Tesi0); `roney/sub_i-j-k/errors.csv` (`roney.py`) |
-| `figure/`                                  | `numeri.csv`, `confronto.csv` e 16 grafici (`analisi.py`) |
+| `figure/`                                  | `numeri.csv`, `confronto.csv` e 19 grafici (`analisi.py`) |
 | `mesh/`                                    | 12 PLY degli errori, uno per errore e caso, per MeshLab (`mappe.py`) |
 
 Scenari: `aniso_zone_N`, la mesh divisa in N zone casuali (seme 0), ogni zona
@@ -212,3 +212,14 @@ alle coordinate del file e' il vertice 1405, lo stesso. La config effettiva
 della run originale e' `simulator/stage1/augmenta_config.yaml`. Le fibre
 escono in `data/stage1/ssm_mean_LA_fibers/result_LA/LA_endo_with_fiber.{pts,elem,lon}`:
 vanno confrontate con quelle di `data/augmenta/`, senza sovrascriverle.
+
+## Licenza
+
+Il codice del repository e' sotto AGPL-3.0-or-later (vedi [`LICENSE`](LICENSE)).
+Fanno eccezione, e restano sotto le loro licenze:
+
+- `estimator/include/happly.h`: MIT, licenza nell'intestazione del file (vedi
+  [`estimator/THIRD_PARTY.md`](estimator/THIRD_PARTY.md));
+- l'SSM in `data/external/`: CC-BY 4.0, Nagel et al. 2021;
+- l'uscita di AugmentA in `data/augmenta/`: generata con AugmentA, Academic
+  Public License.

@@ -17,7 +17,6 @@ namespace {
         Mesh m;
         m.importMultiLatPly(cfg.latPly);
         if (!cfg.allMaps) m.selectMaps(cfg.maps);
-        m.updateVertexNormals();
         m.computeGradients();
         // stima prima di caricare la ground truth: non puo' leggerla
         auto est = m.estimateAnisotropy(cfg.minSingularValue);
