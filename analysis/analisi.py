@@ -35,10 +35,16 @@ grafico0_cond_errori.png, aniso_zone_1, facce con cond calcolato dei 42
 sottoinsiemi messe insieme, in 10 fasce di cond di area uguale, ognuna al suo
 cond mediano. Tre pannelli angolo, cv_l, rapporto, una scatola per fascia sulle
 sue facce stimabili, scala log sui due assi, nel titolo la correlazione di
-Spearman fra cond ed errore, non pesata; un quarto pannello con la % di area
-della fascia con lambda2 <= 0.
+Spearman fra cond ed errore, non pesata; in un quadrato 2 x 2 con il pannello
+dell'area: la % di area della fascia dove la stima non e' un'ellisse, cioe' le
+facce con cond ma con l'autovalore minore lambda2 <= 0 (la conica stimata e'
+un'iperbole). Le facce scartate per valore singolare minimo sotto soglia non
+hanno cond e non compaiono.
 grafico0_mappe_cond.png, aniso_zone_1, una scatola del cond per k, sulle facce
 con cond calcolato di tutti i sottoinsiemi con k mappe, scala log.
+grafico0_cond_area.png, aniso_zone_1, un punto per sottoinsieme da numeri.csv:
+cond_q90 (log) in orizzontale, area non stimabile in verticale, colore e
+simbolo per k, nel titolo il rho di Spearman sui 42 punti.
 
 Le altre figure, ognuna in quattro PNG: _area (area non stimabile, un pannello) e
 _angolo, _cv_l, _rapporto. Nei grafici 1 e 2 questi ultimi hanno un solo
@@ -275,7 +281,7 @@ def scatole(ax, x, x0, x1, gruppi, col):
 
 def nota_scatole(fig):
     """La legenda delle scatole, sotto la figura."""
-    fig.text(0.5, -0.07, "scatola: q25–q75 · linea: q50 · baffi: q5–q95 (pesati per area)", ha="center")
+    fig.supxlabel("scatola: q25–q75 · linea: q50 · baffi: q5–q95 (pesati per area)", fontsize="medium")
 
 
 def main():
@@ -293,7 +299,8 @@ def main():
     est = c[c["estimable"] == 1]
     xc = c.groupby("fascia").apply(lambda s: wquantile(s["cond"], s["area"], 0.50)).to_numpy()
     h = 10 ** (0.4 * np.diff(np.log10(xc)).min())          # mezza larghezza delle scatole, costante in log
-    fig, axes = plt.subplots(1, 4, figsize=(18.4, 4.6), layout="constrained")
+    fig, axes = plt.subplots(2, 2, figsize=(10, 9), layout="constrained")
+    axes = axes.flat
     for ax, e in zip(axes, ERRORS):
         scatole(ax, xc, xc / h, xc * h, est.groupby("fascia"), e)
         ax.grid(alpha=0.3)
@@ -306,10 +313,10 @@ def main():
     ax.grid(alpha=0.3)
     ax.set_xlabel("cond (scala log)")
     scala_log(ax, "x")
-    asse_y(ax, "area con λ2 ≤ 0 [%]")
-    ax.set_title("ellisse impossibile (λ2 ≤ 0)")
+    asse_y(ax, "area dove la stima non è un'ellisse [%]")
+    ax.set_title("stima che non è un'ellisse")
     nota_scatole(fig)
-    fig.suptitle(f"{SCENARIO_MAPPE}, tutti i sottoinsiemi: errore in funzione del cond, fasce di area uguale")
+    fig.suptitle(f"{SCENARIO_MAPPE}, tutti i sottoinsiemi: errore in funzione del cond,\nfasce di area uguale")
     fig.savefig(FIG / "grafico0_cond_errori.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -324,6 +331,24 @@ def main():
     nota_scatole(fig)
     fig.suptitle(f"{SCENARIO_MAPPE}: distribuzione del cond per numero di mappe")
     fig.savefig(FIG / "grafico0_mappe_cond.png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
+
+    # grafico 0c: aniso_zone_1, area non stimabile contro cond_q90, un punto per sottoinsieme
+    g0 = numeri[numeri["scenario"] == SCENARIO_MAPPE]
+    rho = spearmanr(g0["cond_q90"], g0["area_non_stimabile_%"]).statistic
+    fig, ax = plt.subplots(figsize=(7.5, 4.6), layout="constrained")
+    for (k, s), (color, marker) in zip(g0.groupby("k"), (("#000000", "o"), ("#0072B2", "s"), ("#D55E00", "^"),
+                                                         ("#009E73", "D"))):
+        ax.scatter(s["cond_q90"], s["area_non_stimabile_%"], s=28, color=color, marker=marker, label=f"k = {k}",
+                   zorder=3)
+    ax.grid(alpha=0.3)
+    ax.set_xlabel("cond, q90 del sottoinsieme (scala log)")
+    scala_log(ax, "x")
+    asse_y(ax, YLABEL["area"])
+    fig.legend(*ax.get_legend_handles_labels(), loc="outside lower center", ncol=4, frameon=False)
+    fig.suptitle(f"{SCENARIO_MAPPE}: area non stimabile e coda del cond, un punto per sottoinsieme "
+                 f"(ρ di Spearman = {rho:.2f})")
+    fig.savefig(FIG / "grafico0_cond_area.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
     # grafico 1: aniso_zone_1, in funzione di k, punti sfalsati dentro ogni k

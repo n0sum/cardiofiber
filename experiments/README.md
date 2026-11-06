@@ -197,8 +197,9 @@ quello orizzontale, con gli stessi limiti).
 
 | file                       | contenuto                                              |
 |----------------------------|--------------------------------------------------------|
-| `grafico0_cond_errori.png` | `aniso_zone_1`, facce con cond calcolato dei 42 sottoinsiemi insieme, in 10 fasce di cond di area uguale, al cond mediano della fascia: tre pannelli angolo, cv_l, rapporto con una scatola per fascia sulle facce stimabili (q25–q75, linea al q50, baffi q5–q95, pesati per area; log su entrambi gli assi) e nel titolo il ρ di Spearman fra cond ed errore; un quarto pannello con la % di area della fascia con λ2 ≤ 0 |
+| `grafico0_cond_errori.png` | `aniso_zone_1`, facce con cond calcolato dei 42 sottoinsiemi insieme, in 10 fasce di cond di area uguale, al cond mediano della fascia: tre pannelli angolo, cv_l, rapporto con una scatola per fascia sulle facce stimabili (q25–q75, linea al q50, baffi q5–q95, pesati per area; log su entrambi gli assi) e nel titolo il ρ di Spearman fra cond ed errore; in un quadrato 2 × 2 con il pannello dell'area: la % di area della fascia dove la stima non è un'ellisse, cioè le facce con cond ma con autovalore minore ≤ 0 (la conica stimata è un'iperbole); le facce scartate per valore singolare minimo sotto soglia non hanno cond e non compaiono |
 | `grafico0_mappe_cond.png`  | `aniso_zone_1`: una scatola del cond (log) per k, sulle facce con cond calcolato di tutti i sottoinsiemi con k mappe |
+| `grafico0_cond_area.png`   | `aniso_zone_1`, un punto per sottoinsieme da `numeri.csv`: cond_q90 (log) in orizzontale, area non stimabile in verticale, colore e simbolo per k; nel titolo il ρ di Spearman sui 42 punti |
 | `grafico1_mappe_*`         | `aniso_zone_1`, in funzione di k: un punto per sottoinsieme e quantile, sfalsati dentro ogni k |
 | `grafico2_zone_*`          | sei mappe, in funzione di d (log): un punto per scenario e quantile |
 | `grafico3_zone_mappe_*`    | in funzione di d (log): per ogni k mediana dei sottoinsiemi e fascia dal minimo al massimo |
