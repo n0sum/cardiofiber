@@ -30,9 +30,9 @@ tutte mettono insieme le facce appaiate delle 20 terne dello scenario; le
 loro aree sono le medie sulle terne.
 
 grafico0_cond_errori.png, aniso_zone_1, facce stimabili dei 42 sottoinsiemi
-messe insieme: tre pannelli angolo, cv_l, rapporto; q50, q90 e q99 in 15 fasce
-di cond di area uguale, ognuno al cond mediano della fascia, scala log sui due
-assi. Nel titolo del pannello la correlazione di Spearman fra cond ed errore,
+messe insieme: tre pannelli angolo, cv_l, rapporto; per ognuna di 10 fasce di
+cond di area uguale, al cond mediano della fascia, una scatola dal q25 al q75,
+una linea al q50 e baffi dal q5 al q95, scala log sui due assi. Nel titolo del pannello la correlazione di Spearman fra cond ed errore,
 non pesata.
 
 grafico0_mappe_cond.png, aniso_zone_1, in funzione di k come il grafico 1: un
@@ -69,6 +69,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgba
 from matplotlib.ticker import FormatStrFormatter, LogLocator, NullFormatter
 from scipy.stats import spearmanr
 
@@ -267,21 +268,26 @@ def main():
     df = pd.concat([load(d / "errors.csv") for d in (OUT / SCENARIO_MAPPE / "faccia").glob("sub_*")])
     est = df[df["estimable"] == 1].sort_values("cond")
     w = est["area"]
-    fascia = np.minimum((15 * (w.cumsum() - 0.5 * w) / w.sum()).astype(int), 14)  # 15 fasce di area uguale
+    fascia = np.minimum((10 * (w.cumsum() - 0.5 * w) / w.sum()).astype(int), 9)   # 10 fasce di area uguale
+    fasce = est.groupby(fascia)
+    xc = fasce.apply(lambda s: wquantile(s["cond"], s["area"], 0.50)).to_numpy()
+    h = 10 ** (0.4 * np.diff(np.log10(xc)).min())          # mezza larghezza delle scatole, costante in log
+    blu = QSTILE["q50"][0]
     fig, axes = plt.subplots(1, 3, figsize=(13.8, 4.6), layout="constrained")
     for ax, e in zip(axes, ERRORS):
-        fasce = est.groupby(fascia)
-        xc = fasce.apply(lambda s: wquantile(s["cond"], s["area"], 0.50))
-        for q in QUANTILES:
-            color, marker = QSTILE[f"q{q}"]
-            ax.plot(xc, fasce.apply(lambda s: wquantile(s[e].abs(), s["area"], q / 100)), color=color,
-                    marker=marker, ms=5, lw=1.5, label=f"q{q}", zorder=3)
+        q5, q25, q50, q75, q95 = (fasce.apply(lambda s: wquantile(s[e].abs(), s["area"], q)).to_numpy()
+                                  for q in (0.05, 0.25, 0.50, 0.75, 0.95))
+        ax.vlines(xc, q5, q25, color=blu, lw=1)
+        ax.vlines(xc, q75, q95, color=blu, lw=1)
+        ax.bar(xc / h, q75 - q25, width=xc * h - xc / h, bottom=q25, align="edge", facecolor=to_rgba(blu, 0.25),
+               edgecolor=blu, lw=1, zorder=3)
+        ax.hlines(q50, xc / h, xc * h, color=blu, lw=2, zorder=4)
         ax.grid(alpha=0.3)
         ax.set_xlabel("cond (scala log)")
         ax.set_ylabel(f"{YLABEL[e]} (scala log)")
         scala_log(ax, "xy")
         ax.set_title(f"{e}, ρ di Spearman = {spearmanr(est['cond'], est[e].abs()).statistic:.2f}")
-    fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=3, frameon=False)
+    fig.text(0.5, -0.02, "scatola: q25–q75 · linea: q50 · baffi: q5–q95 (pesati per area)", ha="center")
     fig.suptitle(f"{SCENARIO_MAPPE}, tutti i sottoinsiemi: errore in funzione del cond, fasce di area uguale")
     fig.savefig(FIG / "grafico0_cond_errori.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
