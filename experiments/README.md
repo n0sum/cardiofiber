@@ -197,8 +197,8 @@ quello orizzontale, con gli stessi limiti).
 
 | file                       | contenuto                                              |
 |----------------------------|--------------------------------------------------------|
-| `grafico0_cond_errori.png` | `aniso_zone_1`, facce stimabili dei 42 sottoinsiemi insieme: tre pannelli angolo, cv_l, rapporto; per ognuna di 10 fasce di cond di area uguale, al cond mediano della fascia, scatola q25–q75, linea al q50 e baffi q5–q95 pesati per area (log su entrambi gli assi); nel titolo il ρ di Spearman fra cond ed errore |
-| `grafico0_mappe_cond.png`  | `aniso_zone_1`, in funzione di k come il grafico 1: un punto per sottoinsieme e quantile del cond (log), sulle facce con cond calcolato |
+| `grafico0_cond_errori.png` | `aniso_zone_1`, facce con cond calcolato dei 42 sottoinsiemi insieme, in 10 fasce di cond di area uguale, al cond mediano della fascia: tre pannelli angolo, cv_l, rapporto con una scatola per fascia sulle facce stimabili (q25–q75, linea al q50, baffi q5–q95, pesati per area; log su entrambi gli assi) e nel titolo il ρ di Spearman fra cond ed errore; un quarto pannello con la % di area della fascia con λ2 ≤ 0 |
+| `grafico0_mappe_cond.png`  | `aniso_zone_1`: una scatola del cond (log) per k, sulle facce con cond calcolato di tutti i sottoinsiemi con k mappe |
 | `grafico1_mappe_*`         | `aniso_zone_1`, in funzione di k: un punto per sottoinsieme e quantile, sfalsati dentro ogni k |
 | `grafico2_zone_*`          | sei mappe, in funzione di d (log): un punto per scenario e quantile |
 | `grafico3_zone_mappe_*`    | in funzione di d (log): per ogni k mediana dei sottoinsiemi e fascia dal minimo al massimo |

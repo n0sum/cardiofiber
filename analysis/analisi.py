@@ -29,14 +29,16 @@ metodi con quella terna) ed errori sulle facce appaiate. Le righe con sub =
 tutte mettono insieme le facce appaiate delle 20 terne dello scenario; le
 loro aree sono le medie sulle terne.
 
-grafico0_cond_errori.png, aniso_zone_1, facce stimabili dei 42 sottoinsiemi
-messe insieme: tre pannelli angolo, cv_l, rapporto; per ognuna di 10 fasce di
-cond di area uguale, al cond mediano della fascia, una scatola dal q25 al q75,
-una linea al q50 e baffi dal q5 al q95, scala log sui due assi. Nel titolo del pannello la correlazione di Spearman fra cond ed errore,
-non pesata.
-
-grafico0_mappe_cond.png, aniso_zone_1, in funzione di k come il grafico 1: un
-punto per sottoinsieme e quantile del cond, scala log.
+Scatole dei grafici 0a e 0b: dal q25 al q75, linea al q50, baffi dal q5 al q95,
+pesati per area.
+grafico0_cond_errori.png, aniso_zone_1, facce con cond calcolato dei 42
+sottoinsiemi messe insieme, in 10 fasce di cond di area uguale, ognuna al suo
+cond mediano. Tre pannelli angolo, cv_l, rapporto, una scatola per fascia sulle
+sue facce stimabili, scala log sui due assi, nel titolo la correlazione di
+Spearman fra cond ed errore, non pesata; un quarto pannello con la % di area
+della fascia con lambda2 <= 0.
+grafico0_mappe_cond.png, aniso_zone_1, una scatola del cond per k, sulle facce
+con cond calcolato di tutti i sottoinsiemi con k mappe, scala log.
 
 Le altre figure, ognuna in quattro PNG: _area (area non stimabile, un pannello) e
 _angolo, _cv_l, _rapporto. Nei grafici 1 e 2 questi ultimi hanno un solo
@@ -258,6 +260,24 @@ def asse_d(ax):
     ax.set_xlabel("diametro medio di zona d [mm]")
 
 
+def scatole(ax, x, x0, x1, gruppi, col):
+    """Una scatola per gruppo, in x da x0 a x1: dal q25 al q75 del valore assoluto di col, linea al q50 e baffi
+    dal q5 al q95, pesati per area."""
+    q5, q25, q50, q75, q95 = (gruppi.apply(lambda s: wquantile(s[col].abs(), s["area"], q)).to_numpy()
+                              for q in (0.05, 0.25, 0.50, 0.75, 0.95))
+    blu = QSTILE["q50"][0]
+    ax.vlines(x, q5, q25, color=blu, lw=1)
+    ax.vlines(x, q75, q95, color=blu, lw=1)
+    ax.bar(x0, q75 - q25, width=x1 - x0, bottom=q25, align="edge", facecolor=to_rgba(blu, 0.25), edgecolor=blu,
+           lw=1, zorder=3)
+    ax.hlines(q50, x0, x1, color=blu, lw=2, zorder=4)
+
+
+def nota_scatole(fig):
+    """La legenda delle scatole, sotto la figura."""
+    fig.text(0.5, -0.07, "scatola: q25–q75 · linea: q50 · baffi: q5–q95 (pesati per area)", ha="center")
+
+
 def main():
     FIG.mkdir(parents=True, exist_ok=True)
     numeri, confronto = tables()
@@ -265,31 +285,45 @@ def main():
     confronto.to_csv(FIG / "confronto.csv", index=False, float_format="%.6g")
 
     # grafico 0a: aniso_zone_1, tutti i sottoinsiemi, errore in funzione del cond
-    df = pd.concat([load(d / "errors.csv") for d in (OUT / SCENARIO_MAPPE / "faccia").glob("sub_*")])
-    est = df[df["estimable"] == 1].sort_values("cond")
-    w = est["area"]
-    fascia = np.minimum((10 * (w.cumsum() - 0.5 * w) / w.sum()).astype(int), 9)   # 10 fasce di area uguale
-    fasce = est.groupby(fascia)
-    xc = fasce.apply(lambda s: wquantile(s["cond"], s["area"], 0.50)).to_numpy()
+    df = pd.concat([load(d / "errors.csv").assign(k=d.name.count("-") + 1)
+                    for d in (OUT / SCENARIO_MAPPE / "faccia").glob("sub_*")])
+    c = df[df["cond"].notna()].sort_values("cond")
+    w = c["area"]
+    c["fascia"] = np.minimum((10 * (w.cumsum() - 0.5 * w) / w.sum()).astype(int), 9)   # 10 fasce di area uguale
+    est = c[c["estimable"] == 1]
+    xc = c.groupby("fascia").apply(lambda s: wquantile(s["cond"], s["area"], 0.50)).to_numpy()
     h = 10 ** (0.4 * np.diff(np.log10(xc)).min())          # mezza larghezza delle scatole, costante in log
-    blu = QSTILE["q50"][0]
-    fig, axes = plt.subplots(1, 3, figsize=(13.8, 4.6), layout="constrained")
+    fig, axes = plt.subplots(1, 4, figsize=(18.4, 4.6), layout="constrained")
     for ax, e in zip(axes, ERRORS):
-        q5, q25, q50, q75, q95 = (fasce.apply(lambda s: wquantile(s[e].abs(), s["area"], q)).to_numpy()
-                                  for q in (0.05, 0.25, 0.50, 0.75, 0.95))
-        ax.vlines(xc, q5, q25, color=blu, lw=1)
-        ax.vlines(xc, q75, q95, color=blu, lw=1)
-        ax.bar(xc / h, q75 - q25, width=xc * h - xc / h, bottom=q25, align="edge", facecolor=to_rgba(blu, 0.25),
-               edgecolor=blu, lw=1, zorder=3)
-        ax.hlines(q50, xc / h, xc * h, color=blu, lw=2, zorder=4)
+        scatole(ax, xc, xc / h, xc * h, est.groupby("fascia"), e)
         ax.grid(alpha=0.3)
         ax.set_xlabel("cond (scala log)")
         ax.set_ylabel(f"{YLABEL[e]} (scala log)")
         scala_log(ax, "xy")
         ax.set_title(f"{e}, ρ di Spearman = {spearmanr(est['cond'], est[e].abs()).statistic:.2f}")
-    fig.text(0.5, -0.02, "scatola: q25–q75 · linea: q50 · baffi: q5–q95 (pesati per area)", ha="center")
+    ax = axes[3]
+    ax.plot(xc, c.groupby("fascia").apply(nonstim), color=QSTILE["q50"][0], lw=1.5, marker="o", ms=5)
+    ax.grid(alpha=0.3)
+    ax.set_xlabel("cond (scala log)")
+    scala_log(ax, "x")
+    asse_y(ax, "area con λ2 ≤ 0 [%]")
+    ax.set_title("ellisse impossibile (λ2 ≤ 0)")
+    nota_scatole(fig)
     fig.suptitle(f"{SCENARIO_MAPPE}, tutti i sottoinsiemi: errore in funzione del cond, fasce di area uguale")
     fig.savefig(FIG / "grafico0_cond_errori.png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
+
+    # grafico 0b: aniso_zone_1, una scatola del cond per k
+    ks = np.array(sorted(c["k"].unique()))
+    fig, ax = plt.subplots(figsize=(7.5, 4.6), layout="constrained")
+    scatole(ax, ks, ks - 0.25, ks + 0.25, c.groupby("k"), "cond")
+    ax.grid(alpha=0.3)
+    ax.set_xticks(ks)
+    ax.set_xlabel("mappe usate k")
+    asse_y(ax, "cond", log=True)
+    nota_scatole(fig)
+    fig.suptitle(f"{SCENARIO_MAPPE}: distribuzione del cond per numero di mappe")
+    fig.savefig(FIG / "grafico0_mappe_cond.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
     # grafico 1: aniso_zone_1, in funzione di k, punti sfalsati dentro ogni k
@@ -297,17 +331,6 @@ def main():
     i, n = g1.groupby("k").cumcount(), g1.groupby("k")["k"].transform("size")
     g1["x"] = g1["k"] + 0.6 * (i - (n - 1) / 2) / n
 
-    # grafico 0b: aniso_zone_1, quantili del cond in funzione di k, come il grafico 1
-    fig, ax = plt.subplots(figsize=(7.5, 4.6), layout="constrained")
-    ax.grid(alpha=0.3)
-    punti(ax, g1["x"], g1, {f"q{q}": f"cond_q{q}" for q in QUANTILES})
-    ax.set_xticks(sorted(g1["k"].unique()))
-    ax.set_xlabel("mappe usate k")
-    asse_y(ax, "cond", log=True)
-    fig.legend(*ax.get_legend_handles_labels(), loc="outside lower center", ncol=3, frameon=False)
-    fig.suptitle(f"{SCENARIO_MAPPE}: cond per numero di mappe, un punto per sottoinsieme")
-    fig.savefig(FIG / "grafico0_mappe_cond.png", dpi=140, bbox_inches="tight")
-    plt.close(fig)
 
     def draw1(ax, cols, ylabel):
         punti(ax, g1["x"], g1, cols)
