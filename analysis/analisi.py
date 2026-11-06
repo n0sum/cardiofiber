@@ -26,6 +26,10 @@ metodi con quella terna) ed errori sulle facce appaiate. Le righe con sub =
 tutte mettono insieme le facce appaiate delle 20 terne dello scenario; le
 loro aree sono le medie sulle terne.
 
+cond.csv, una riga per k e fascia di cond del grafico 0: cond minimo, mediano
+e massimo della fascia, la sua % di area, la % di area con lambda2 <= 0 (cond
+calcolato ma faccia non stimabile) ed errori sulle facce stimabili.
+
 Figure, ognuna in quattro PNG: _area (area non stimabile, un pannello) e
 _angolo, _cv_l, _rapporto. Nei grafici 1 e 2 questi ultimi hanno un solo
 pannello con q50, q90 e q99 (cerchio, quadrato, triangolo, colori Okabe-Ito),
@@ -33,6 +37,12 @@ solo punti senza linee, con l'asse verticale in scala log ed etichette in
 numeri semplici; nei grafici 3 e 4 tre pannelli q50, q90, q99, ognuno con la
 sua scala. Gli altri assi verticali, compresi i file _area, sono lineari da 0;
 nel grafico 4 anche l'asse orizzontale, con gli stessi limiti.
+  grafico0_cond        aniso_zone_1, facce con cond calcolato: per ogni k le
+                       facce dei sottoinsiemi con k mappe in 20 fasce di cond
+                       di area uguale, in ascissa il cond mediano (log);
+                       errori in scala log, una linea per k, con una retta di
+                       pendenza 1 per riferimento; _area e' la % di area con
+                       lambda2 <= 0
   grafico1_mappe       aniso_zone_1, in funzione di k: un punto per
                        sottoinsieme e quantile, sfalsati dentro ogni k
   grafico2_zone        tutte le mappe, in funzione di d: un punto per
@@ -238,11 +248,55 @@ def asse_d(ax):
     ax.set_xlabel("diametro medio di zona d [mm]")
 
 
+def fasce_cond(n=20):
+    """cond.csv come DataFrame: per ogni k le facce di aniso_zone_1 con cond calcolato, da tutti i
+    sottoinsiemi con k mappe, in n fasce di cond di area uguale."""
+    rows = []
+    for k in (3, 4, 5, 6):
+        df = pd.concat([load(d / "errors.csv") for d in (OUT / SCENARIO_MAPPE / "faccia").glob("sub_*")
+                        if d.name.count("-") + 1 == k])
+        df = df[df["cond"].notna()].sort_values("cond")
+        w = df["area"]
+        cw = w.cumsum()
+        fascia = np.minimum((n * (cw - 0.5 * w) / w.sum()).astype(int), n - 1)
+        for f, s in df.groupby(fascia):
+            rows.append({"k": k, "fascia": f + 1, "cond_min": s["cond"].min(),
+                         "cond_mediano": wquantile(s["cond"], s["area"], 0.50), "cond_max": s["cond"].max(),
+                         "area_%": 100 * s["area"].sum() / w.sum(), "area_lambda2_neg_%": nonstim(s),
+                         **quantiles(s)})
+    return pd.DataFrame(rows)
+
+
 def main():
     FIG.mkdir(parents=True, exist_ok=True)
     numeri, confronto = tables()
     numeri.to_csv(FIG / "numeri.csv", index=False, float_format="%.6g")
     confronto.to_csv(FIG / "confronto.csv", index=False, float_format="%.6g")
+    cond = fasce_cond()
+    cond.to_csv(FIG / "cond.csv", index=False, float_format="%.6g")
+
+    # grafico 0: aniso_zone_1, errori in funzione del cond, una linea per k
+    colors0 = dict(zip(sorted(cond["k"].unique()), plt.cm.viridis(np.linspace(0, 0.55, cond["k"].nunique()))))
+
+    def draw0(ax, cols, ylabel):
+        (col,) = cols.values()
+        area = col == "area_non_stimabile_%"
+        if area:
+            col, ylabel = "area_lambda2_neg_%", "area con λ2 ≤ 0 [%]"
+        for k, s in cond.groupby("k"):
+            ax.plot(s["cond_mediano"], s[col], color=colors0[k], lw=2, marker="o", ms=4, label=f"k = {k}")
+        ax.set_xlabel("cond (scala log)")
+        if area:
+            scala_log(ax, "x")
+            asse_y(ax, ylabel)
+            return
+        x0, y0 = cond.loc[cond["k"] == 6, ["cond_mediano", col]].iloc[0]
+        x = np.array([cond["cond_mediano"].min(), cond["cond_mediano"].max()])
+        ax.plot(x, y0 * x / x0, color="#888", lw=1, ls="--", label="errore ∝ cond")
+        scala_log(ax, "x")
+        asse_y(ax, ylabel, log=True)
+
+    figure("grafico0_cond", f"{SCENARIO_MAPPE}: errore in funzione del cond, fasce di area uguale", draw0)
 
     # grafico 1: aniso_zone_1, in funzione di k, punti sfalsati dentro ogni k
     g1 = numeri[numeri["scenario"] == SCENARIO_MAPPE].copy()

@@ -197,6 +197,7 @@ quello orizzontale, con gli stessi limiti).
 
 | file                       | contenuto                                              |
 |----------------------------|--------------------------------------------------------|
+| `grafico0_cond_*`          | `aniso_zone_1`, facce con cond calcolato: per ogni k le facce dei sottoinsiemi con k mappe in 20 fasce di cond di area uguale, in ascissa il cond mediano (log); tre pannelli q50, q90, q99 con errori in scala log, una linea per k e una retta di pendenza 1 per riferimento; `_area` e' la % di area con λ2 ≤ 0; tabella in `cond.csv` |
 | `grafico1_mappe_*`         | `aniso_zone_1`, in funzione di k: un punto per sottoinsieme e quantile, sfalsati dentro ogni k |
 | `grafico2_zone_*`          | sei mappe, in funzione di d (log): un punto per scenario e quantile |
 | `grafico3_zone_mappe_*`    | in funzione di d (log): per ogni k mediana dei sottoinsiemi e fascia dal minimo al massimo |
