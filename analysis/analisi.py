@@ -88,10 +88,10 @@ SCENARIO_MAPPE = "aniso_zone_1"                           # grafico 1
 ERRORS = ("angolo", "cv_l", "rapporto")
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
-          "angolo": "fibre angle error [deg]",
+          "angolo": "fiber angle error [deg]",
           "cv_l": "|relative error of CV_L| [%]",
           "rapporto": "|relative error of CV_L / CV_T| [%]"}
-NOMI = {"angolo": "fibre angle", "cv_l": "CV_L", "rapporto": "CV_L / CV_T"}   # titoli dei pannelli del grafico 0a
+NOMI = {"angolo": "fiber angle", "cv_l": "CV_L", "rapporto": "CV_L / CV_T"}   # titoli dei pannelli del grafico 0a
 METODI = {"faccia": "per-face", "roney": "Roney"}
 BLU = "#2a78d6"
 QSTILE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#D55E00", "#009E73"), "os^")}  # Okabe-Ito
