@@ -29,11 +29,11 @@ metodi con quella terna) ed errori sulle facce appaiate. Le righe con sub =
 tutte mettono insieme le facce appaiate delle 20 terne dello scenario; le
 loro aree sono le medie sulle terne.
 
-grafico0_cond_errori.png, aniso_zone_1 con 6 mappe: tre pannelli angolo, cv_l,
-rapporto, un punto grigio per faccia stimabile con cond in orizzontale ed
-errore in verticale, scala log sui due assi; sopra, q50, q90 e q99 in 10 fasce
-di cond di area uguale, ognuno al cond mediano della fascia. Nel titolo del
-pannello la correlazione di Spearman fra cond ed errore, non pesata.
+grafico0_cond_errori.png, aniso_zone_1, facce stimabili dei 42 sottoinsiemi
+messe insieme: tre pannelli angolo, cv_l, rapporto; q50, q90 e q99 in 15 fasce
+di cond di area uguale, ognuno al cond mediano della fascia, scala log sui due
+assi. Nel titolo del pannello la correlazione di Spearman fra cond ed errore,
+non pesata.
 
 grafico0_mappe_cond.png, aniso_zone_1, in funzione di k come il grafico 1: un
 punto per sottoinsieme e quantile del cond, scala log.
@@ -263,14 +263,13 @@ def main():
     numeri.to_csv(FIG / "numeri.csv", index=False, float_format="%.6g")
     confronto.to_csv(FIG / "confronto.csv", index=False, float_format="%.6g")
 
-    # grafico 0a: aniso_zone_1, 6 mappe, errore per faccia in funzione del cond
-    df = load(OUT / SCENARIO_MAPPE / "faccia" / "sub_0-1-2-3-4-5" / "errors.csv")
+    # grafico 0a: aniso_zone_1, tutti i sottoinsiemi, errore in funzione del cond
+    df = pd.concat([load(d / "errors.csv") for d in (OUT / SCENARIO_MAPPE / "faccia").glob("sub_*")])
     est = df[df["estimable"] == 1].sort_values("cond")
     w = est["area"]
-    fascia = np.minimum((10 * (w.cumsum() - 0.5 * w) / w.sum()).astype(int), 9)   # 10 fasce di area uguale
+    fascia = np.minimum((15 * (w.cumsum() - 0.5 * w) / w.sum()).astype(int), 14)  # 15 fasce di area uguale
     fig, axes = plt.subplots(1, 3, figsize=(13.8, 4.6), layout="constrained")
     for ax, e in zip(axes, ERRORS):
-        ax.scatter(est["cond"], est[e].abs(), s=2, color="#888", alpha=0.3, lw=0)
         fasce = est.groupby(fascia)
         xc = fasce.apply(lambda s: wquantile(s["cond"], s["area"], 0.50))
         for q in QUANTILES:
@@ -283,7 +282,7 @@ def main():
         scala_log(ax, "xy")
         ax.set_title(f"{e}, ρ di Spearman = {spearmanr(est['cond'], est[e].abs()).statistic:.2f}")
     fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=3, frameon=False)
-    fig.suptitle(f"{SCENARIO_MAPPE}, 6 mappe: errore per faccia in funzione del cond")
+    fig.suptitle(f"{SCENARIO_MAPPE}, tutti i sottoinsiemi: errore in funzione del cond, fasce di area uguale")
     fig.savefig(FIG / "grafico0_cond_errori.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 

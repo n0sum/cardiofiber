@@ -197,7 +197,7 @@ quello orizzontale, con gli stessi limiti).
 
 | file                       | contenuto                                              |
 |----------------------------|--------------------------------------------------------|
-| `grafico0_cond_errori.png` | `aniso_zone_1`, 6 mappe: tre pannelli angolo, cv_l, rapporto; un punto per faccia stimabile, cond in orizzontale ed errore in verticale (log su entrambi), q50, q90 e q99 in 10 fasce di cond di area uguale; nel titolo il ρ di Spearman fra cond ed errore |
+| `grafico0_cond_errori.png` | `aniso_zone_1`, facce stimabili dei 42 sottoinsiemi insieme: tre pannelli angolo, cv_l, rapporto; q50, q90 e q99 in 15 fasce di cond di area uguale, al cond mediano della fascia (log su entrambi gli assi); nel titolo il ρ di Spearman fra cond ed errore |
 | `grafico0_mappe_cond.png`  | `aniso_zone_1`, in funzione di k come il grafico 1: un punto per sottoinsieme e quantile del cond (log), sulle facce con cond calcolato |
 | `grafico1_mappe_*`         | `aniso_zone_1`, in funzione di k: un punto per sottoinsieme e quantile, sfalsati dentro ogni k |
 | `grafico2_zone_*`          | sei mappe, in funzione di d (log): un punto per scenario e quantile |
