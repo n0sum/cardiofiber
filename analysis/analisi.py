@@ -87,11 +87,12 @@ FIG = OUT / "figure"
 SCENARIO_MAPPE = "aniso_zone_1"                           # grafico 1
 ERRORS = ("angolo", "cv_l", "rapporto")
 QUANTILES = (50, 90, 99)
-YLABEL = {"area": "area non stimabile [%]",
-          "angolo": "errore angolare [gradi]",
-          "cv_l": "|errore relativo su CV_L| [%]",
-          "rapporto": "|errore relativo su CV_L / CV_T| [%]"}
-METODI = {"faccia": "per faccia", "roney": "Roney"}
+YLABEL = {"area": "non-estimable area [%]",
+          "angolo": "fibre angle error [deg]",
+          "cv_l": "|relative error of CV_L| [%]",
+          "rapporto": "|relative error of CV_L / CV_T| [%]"}
+NOMI = {"angolo": "fibre angle", "cv_l": "CV_L", "rapporto": "CV_L / CV_T"}   # titoli dei pannelli del grafico 0a
+METODI = {"faccia": "per-face", "roney": "Roney"}
 BLU = "#2a78d6"
 QSTILE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#D55E00", "#009E73"), "os^")}  # Okabe-Ito
 SIMBOLI = "osD^v"                                         # scenari del grafico 4
@@ -183,9 +184,9 @@ def figure(name, title, draw, insieme=False, dopo=None):
     solo pannello, altrimenti un pannello per quantile. dopo(fig), se c'e', si chiama prima di salvare."""
     for q, ylabel in YLABEL.items():
         if q == "area":
-            panels = {"area non stimabile": {"area non stimabile": "area_non_stimabile_%"}}
+            panels = {"non-estimable area": {"non-estimable area": "area_non_stimabile_%"}}
         elif insieme:
-            panels = {"q50, q90 e q99": {f"q{p}": f"{q}_q{p}" for p in QUANTILES}}
+            panels = {"q50, q90 and q99": {f"q{p}": f"{q}_q{p}" for p in QUANTILES}}
         else:
             panels = {f"q{p}": {f"q{p}": f"{q}_q{p}"} for p in QUANTILES}
         fig, axes = plt.subplots(1, len(panels), figsize=(max(4.6 * len(panels), 7.5), 4.6), squeeze=False,
@@ -244,7 +245,7 @@ def separa_etichette(fig):
 def asse_y(ax, ylabel, log=False):
     """Asse verticale: in scala log, oppure lineare da 0."""
     if log:
-        ax.set_ylabel(f"{ylabel} (scala log)")
+        ax.set_ylabel(f"{ylabel} (log scale)")
         scala_log(ax, "y")
     else:
         ax.set_ylabel(ylabel)
@@ -260,10 +261,10 @@ def punti(ax, x, df, cols):
 
 def asse_d(ax):
     """Asse orizzontale d in scala log, con la linea del diametro del disco di Roney."""
-    ax.axvline(RONEY_DISCO, color="#555", lw=1, ls="--", label=f"diametro del disco di Roney ({RONEY_DISCO:g} mm)")
+    ax.axvline(RONEY_DISCO, color="#555", lw=1, ls="--", label=f"Roney's disc diameter ({RONEY_DISCO:g} mm)")
     ax.set_xscale("log")
     ax.xaxis.set_major_formatter(FormatStrFormatter("%g"))
-    ax.set_xlabel("diametro medio di zona d [mm]")
+    ax.set_xlabel("mean zone diameter d [mm]")
 
 
 def scatole(ax, x, x0, x1, gruppi, col):
@@ -281,7 +282,7 @@ def scatole(ax, x, x0, x1, gruppi, col):
 
 def nota_scatole(fig):
     """La legenda delle scatole, sotto la figura."""
-    fig.supxlabel("scatola: q25–q75 · linea: q50 · baffi: q5–q95 (pesati per area)", fontsize="medium")
+    fig.supxlabel("box: q25–q75 · line: q50 · whiskers: q5–q95 (area-weighted)", fontsize="medium")
 
 
 def main():
@@ -304,19 +305,19 @@ def main():
     for ax, e in zip(axes, ERRORS):
         scatole(ax, xc, xc / h, xc * h, est.groupby("fascia"), e)
         ax.grid(alpha=0.3)
-        ax.set_xlabel("cond (scala log)")
-        ax.set_ylabel(f"{YLABEL[e]} (scala log)")
+        ax.set_xlabel("cond (log scale)")
+        ax.set_ylabel(f"{YLABEL[e]} (log scale)")
         scala_log(ax, "xy")
-        ax.set_title(f"{e}, ρ di Spearman = {spearmanr(est['cond'], est[e].abs()).statistic:.2f}")
+        ax.set_title(f"{NOMI[e]}, Spearman's ρ = {spearmanr(est['cond'], est[e].abs()).statistic:.2f}")
     ax = axes[3]
     ax.plot(xc, c.groupby("fascia").apply(nonstim), color=QSTILE["q50"][0], lw=1.5, marker="o", ms=5)
     ax.grid(alpha=0.3)
-    ax.set_xlabel("cond (scala log)")
+    ax.set_xlabel("cond (log scale)")
     scala_log(ax, "x")
-    asse_y(ax, "area dove la stima non è un'ellisse [%]")
-    ax.set_title("stima che non è un'ellisse")
+    asse_y(ax, "area where the estimate is not an ellipse [%]")
+    ax.set_title("estimate is not an ellipse")
     nota_scatole(fig)
-    fig.suptitle(f"{SCENARIO_MAPPE}, tutti i sottoinsiemi: errore in funzione del cond,\nfasce di area uguale")
+    fig.suptitle(f"{SCENARIO_MAPPE}, all map subsets: error as a function of cond,\nequal-area bins")
     fig.savefig(FIG / "grafico0_cond_errori.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -326,10 +327,10 @@ def main():
     scatole(ax, ks, ks - 0.25, ks + 0.25, c.groupby("k"), "cond")
     ax.grid(alpha=0.3)
     ax.set_xticks(ks)
-    ax.set_xlabel("mappe usate k")
+    ax.set_xlabel("maps used, k")
     asse_y(ax, "cond", log=True)
     nota_scatole(fig)
-    fig.suptitle(f"{SCENARIO_MAPPE}: distribuzione del cond per numero di mappe")
+    fig.suptitle(f"{SCENARIO_MAPPE}: distribution of cond by number of maps")
     fig.savefig(FIG / "grafico0_mappe_cond.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -342,12 +343,12 @@ def main():
         ax.scatter(s["cond_q90"], s["area_non_stimabile_%"], s=28, color=color, marker=marker, label=f"k = {k}",
                    zorder=3)
     ax.grid(alpha=0.3)
-    ax.set_xlabel("cond, q90 del sottoinsieme (scala log)")
+    ax.set_xlabel("cond, subset q90 (log scale)")
     scala_log(ax, "x")
     asse_y(ax, YLABEL["area"])
     fig.legend(*ax.get_legend_handles_labels(), loc="outside lower center", ncol=4, frameon=False)
-    fig.suptitle(f"{SCENARIO_MAPPE}: area non stimabile e coda del cond, un punto per sottoinsieme "
-                 f"(ρ di Spearman = {rho:.2f})")
+    fig.suptitle(f"{SCENARIO_MAPPE}: non-estimable area and tail of cond, one point per map subset "
+                 f"(Spearman's ρ = {rho:.2f})")
     fig.savefig(FIG / "grafico0_cond_area.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -360,10 +361,10 @@ def main():
     def draw1(ax, cols, ylabel):
         punti(ax, g1["x"], g1, cols)
         ax.set_xticks(sorted(g1["k"].unique()))
-        ax.set_xlabel("mappe usate k")
+        ax.set_xlabel("maps used, k")
         asse_y(ax, ylabel, log=len(cols) > 1)
 
-    figure("grafico1_mappe", f"{SCENARIO_MAPPE}: un punto per sottoinsieme di mappe", draw1, insieme=True)
+    figure("grafico1_mappe", f"{SCENARIO_MAPPE}: one point per map subset", draw1, insieme=True)
 
     # grafico 2: tutte le mappe, in funzione di d
     g2 = numeri[numeri["k"] == numeri["k"].max()].sort_values("d")
@@ -373,7 +374,7 @@ def main():
         asse_d(ax)
         asse_y(ax, ylabel, log=len(cols) > 1)
 
-    figure("grafico2_zone", f"aniso_zone_N, per faccia, {g2['k'].iloc[0]} mappe: un punto per scenario", draw2,
+    figure("grafico2_zone", f"aniso_zone_N, per-face, all {g2['k'].iloc[0]} maps: one point per scenario", draw2,
            insieme=True)
 
     # grafico 3: in funzione di d, una linea e una fascia per k
@@ -389,7 +390,7 @@ def main():
         asse_d(ax)
         asse_y(ax, ylabel)
 
-    figure("grafico3_zone_mappe", "aniso_zone_N: mediana dei sottoinsiemi di k mappe, fascia dal minimo al massimo",
+    figure("grafico3_zone_mappe", "aniso_zone_N: median over map subsets of k maps, band from minimum to maximum",
            draw3)
 
     # grafico 4: per faccia contro Roney, un punto per terna e scenario
@@ -417,7 +418,7 @@ def main():
         for i in (y.idxmin(), y.idxmax()):
             ax.plot([0, x[i]], [y[i], y[i]], **proiezione)
         ax.plot([mx, mx, 0], [0, my, my], **proiezione)
-        ax.scatter(mx, my, s=170, marker="+", linewidths=2, color="#444", label="baricentro", zorder=5)
+        ax.scatter(mx, my, s=170, marker="+", linewidths=2, color="#444", label="centroid", zorder=5)
         for setter, v in ((ax.set_xticks, x), (ax.set_yticks, y)):
             vals = [0, v.min(), v.mean(), v.max()]
             setter(vals, ["0"] + [f"{t:#.3g}".rstrip(".") for t in vals[1:]])   # 19.0, non 19
@@ -426,8 +427,8 @@ def main():
         ax.set_xlabel(f"{METODI['roney']}: {ylabel}")
         ax.set_ylabel(f"{METODI['faccia']}: {ylabel}")
 
-    figure("grafico4_roney", "terne di mappe: per faccia contro Roney, facce appaiate (area: ogni metodo da solo)\n"
-           "sugli assi: min, baricentro (media delle terne) e max", draw4, dopo=separa_etichette)
+    figure("grafico4_roney", "map triplets: per-face vs Roney, paired faces (area: each method alone)\n"
+           "on the axes: min, centroid (mean over triplets) and max", draw4, dopo=separa_etichette)
 
 
 if __name__ == "__main__":
